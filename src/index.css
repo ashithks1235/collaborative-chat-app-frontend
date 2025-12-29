@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+*{
+    border-color: rgba(204, 204, 183, 0.687);
+    font-family: "Open Sans", sans-serif;
+}
+textarea {
+  resize: none; 
+}
