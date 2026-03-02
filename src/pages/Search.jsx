@@ -1,38 +1,64 @@
-import { FiSearch, FiMessageSquare, FiUsers, FiFileText } from "react-icons/fi";
-import Card from "../components/common/Card";
-import ListItem from "../components/common/ListItem";
+import { useState } from "react";
+import { globalSearch } from "../api/search.api";
+import { useNavigate } from "react-router-dom";
 
-export default function Search() {
+export default function SearchPage() {
+  const [q, setQ] = useState("");
+  const [result, setResult] = useState(null);
+  const nav = useNavigate();
+
+  const search = async () => {
+    const data = await globalSearch(q);
+    setResult(data);
+  };
+
   return (
-    <div className="p-6 space-y-6 bg-gray-50 h-full">
+    <div className="p-6 max-w-3xl">
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
-        <FiSearch className="text-gray-500" />
-        <input
-          type="text"
-          placeholder="Search messages, channels, members..."
-          className="w-full outline-none text-sm"
-        />
-      </div>
+      <input
+        className="w-full border p-2 rounded mb-3"
+        placeholder="Search everything..."
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
 
-      {/* Search Results */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card title="Messages" icon={<FiMessageSquare />}>
-          <ListItem title="Meeting at 5 PM" meta="#general" />
-          <ListItem title="API deployment done" meta="#backend" />
-        </Card>
+      <button
+        onClick={search}
+        className="bg-blue-500 text-white px-3 py-1 rounded"
+      >
+        Search
+      </button>
 
-        <Card title="Channels" icon={<FiUsers />}>
-          <ListItem title="#frontend" meta="12 members" />
-          <ListItem title="#design" meta="8 members" />
-        </Card>
+      {result && (
+        <div className="mt-4 space-y-3">
 
-        <Card title="Files" icon={<FiFileText />}>
-          <ListItem title="API_Specs.pdf" meta="yesterday" />
-          <ListItem title="UI_Wireframe.fig" meta="2 days ago" />
-        </Card>
-      </div>
+          <h3 className="font-bold">Channels</h3>
+          {result.channels.map(c => (
+            <div
+              key={c._id}
+              onClick={() => nav(`/channel/${c._id}`)}
+              className="border p-2 cursor-pointer"
+            >
+              # {c.name}
+            </div>
+          ))}
+
+          <h3 className="font-bold">Messages</h3>
+          {result.messages.map(m => (
+            <div key={m._id} className="border p-2">
+              {m.text} — in #{m.channel?.name}
+            </div>
+          ))}
+
+          <h3 className="font-bold">Users</h3>
+          {result.users.map(u => (
+            <div key={u._id} className="border p-2">
+              {u.username}
+            </div>
+          ))}
+
+        </div>
+      )}
     </div>
   );
 }
