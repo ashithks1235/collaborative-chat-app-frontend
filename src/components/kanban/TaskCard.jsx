@@ -2,209 +2,229 @@ import { format } from "date-fns";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { memo } from "react";
-import { FiMessageSquare, FiPaperclip } from "react-icons/fi";
 import { useAuthContext } from "../../context/AuthContext";
+import { motion } from "framer-motion";
+import api from "../../api/axios";
 
-function TaskCard({ task, columnId, index, onOpen }) {
+function TaskCard({ task, columnId, index, onOpen, refetchTasks }) {
 
-  const { user } = useAuthContext();
+const { user } = useAuthContext();
 
-  const isAssigned = task?.assignees?.some(
-    a => String(a._id) === String(user?._id)
-  );
-  /* ===============================
-     DND-KIT SORTABLE
-  =============================== */
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({
-    id: task?._id,
-    data: {
-      columnId,
-      index
-    },
-    disabled: !isAssigned
-  });
+const isAssigned = task?.assignees?.some(
+a => String(a._id) === String(user?._id)
+);
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : "auto",
-    opacity: isDragging ? 0.9 : 1,
-    boxShadow: isDragging
-      ? "0 15px 35px rgba(0,0,0,0.15)"
-      : undefined
-  };
+const myAssignment = task?.assignees?.find(
+a => String(a._id) === String(user?._id)
+);
 
-  /* ===============================
-     UI HELPERS
-  =============================== */
+const {
+attributes,
+listeners,
+setNodeRef,
+transform,
+transition,
+isDragging
+} = useSortable({
+id: task?._id,
+data: {
+columnId,
+index
+},
+disabled: !isAssigned
+});
 
-  const priorityStyles = {
-    low: "from-green-400 to-green-500",
-    medium: "from-yellow-400 to-yellow-500",
-    high: "from-red-400 to-red-500"
-  };
+const style = {
+transform: CSS.Transform.toString(transform),
+transition,
+zIndex: isDragging ? 50 : "auto",
+opacity: isDragging ? 0.9 : 1,
+boxShadow: isDragging
+? "0 15px 35px rgba(0,0,0,0.15)"
+: undefined
+};
 
-  const dueColor = () => {
-    if (!task?.dueDate)
-      return "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400";
+const toggleSubtask = async (e, subtaskId) => {
+  e.stopPropagation();
 
-    const diff = new Date(task.dueDate) - new Date();
-    const days = diff / (1000 * 60 * 60 * 24);
+  try {
 
-    if (days < 0)
-      return "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400";
-    if (days < 2)
-      return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400";
-    return "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400";
-  };
+    await api.patch(`/subtasks/${subtaskId}/toggle`);
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onClick={() => onOpen(task)}
-      className="
-        group relative
-        bg-white dark:bg-gray-900
-        rounded-2xl
-        p-5
-        shadow-sm hover:shadow-xl
-        transition-all duration-200
-        hover:-translate-y-1
-        cursor-pointer
-      "
-    >
-      
-      {/* PRIORITY BADGE */}
-      {task?.priority && (
-        <span
-          className={`
-            text-[11px] font-semibold
-            px-3 py-1 rounded-full
-            inline-block mb-3
-            ${
-              task.priority === "high"
-                ? "bg-red-100 text-red-600"
-                : task.priority === "medium"
-                ? "bg-yellow-100 text-yellow-700"
-                : "bg-green-100 text-green-600"
-            }
-          `}
-        >
-          {task.priority === "high"
-            ? "High Priority"
-            : task.priority === "medium"
-            ? "Important"
-            : "Low Priority"}
-        </span>
-      )}
+  } catch (err) {
+    console.error("Failed to toggle subtask");
+  }
+};
 
-      {/* ================= TITLE ================= */}
-      <p className="font-semibold text-base text-gray-800 dark:text-gray-100 leading-snug">
-        {task?.title}
-      </p>
+const priorityStyle = {
+high: "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400",
+medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400",
+low: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"
+};
 
-      {/* ================= DUE DATE ================= */}
-      {task?.dueDate && (
-        <span
-          className={`text-[11px] font-medium px-2 py-1 rounded-full mt-3 inline-block ${dueColor()}`}
-        >
-          ⏰ {format(new Date(task.dueDate), "MMM d")}
-        </span>
-      )}
+const dueColor = () => {
 
-      {/* ================= CREATED BY ================= */}
-      {task?.createdBy && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-          <span className="opacity-70">Created by</span>
-          <span className="font-medium text-gray-700 dark:text-gray-200">
-            {task.createdBy.name}
-          </span>
-        </div>
-      )}
 
-      {/* ================= FOOTER ================= */}
-      <div className="flex items-center justify-between mt-5">
+if (!task?.dueDate)
+  return "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400";
 
-        {/* ASSIGNEES */}
-        <div className="flex -space-x-3">
-          {task?.assignees?.slice(0, 3).map((u, i) => (
-            <div
-              key={u?._id || `assignee-${i}`}
-              className="relative group/avatar"
-            >
-              <img 
-                src={
-                  u?.avatar ||
-                  `https://ui-avatars.com/api/?name=${u?.name}`
-                }
-                alt={u?.name}
-                className="w-9 h-9 rounded-full border-2 border-white shadow-sm"
-              />
+const diff = new Date(task.dueDate) - new Date();
+const days = diff / (1000 * 60 * 60 * 24);
 
-              {/* Tooltip */}
-              <div
-                className="
-                  absolute bottom-10 left-1/2 -translate-x-1/2
-                  bg-gray-900 text-white text-xs px-2 py-1 rounded
-                  opacity-0 group-hover/avatar:opacity-100
-                  transition whitespace-nowrap z-50
-                "
-              >
-                {u?.name}
-                {u?.role && <span className="ml-1">({u.role})</span>}
-              </div>
-            </div>
-          ))}
-        </div>
+if (days < 0)
+  return "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400";
 
-        {/* META */}
-        <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400">
-          {!!task?.commentsCount && (
-            <span className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition">
-              <FiMessageSquare size={14} />
-              {task.commentsCount}
-            </span>
-          )}
+if (days < 2)
+  return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400";
 
-          {!!task?.attachmentsCount && (
-            <span className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 transition">
-              <FiPaperclip size={14} />
-              {task.attachmentsCount}
-            </span>
-          )}
-        </div>
+return "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400";
+
+
+};
+
+const subtasks = task?.subtasks || [];
+
+return (
+
+
+<motion.div
+  ref={setNodeRef}
+  style={style}
+  whileHover={{ scale: 1.02 }}
+  transition={{ type: "spring", stiffness: 250 }}
+  {...attributes}
+  {...listeners}
+  onClick={() => onOpen(task)}
+  className="
+    p-5
+    bg-white/70 dark:bg-gray-900/60
+    backdrop-blur-md
+    rounded-2xl
+    cursor-pointer
+    transition-all duration-300
+    hover:shadow-lg
+  "
+>
+
+  {/* PRIORITY */}
+
+  {task?.priority && (
+    <div className="mb-2">
+      <span
+        className={`text-[11px] font-medium px-2 py-1 rounded-full ${priorityStyle[task.priority]}`}
+      >
+        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+      </span>
+    </div>
+  )}
+
+  {/* TITLE */}
+
+  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-snug line-clamp-2">
+    {task?.title}
+  </h4>
+
+  {/* PROGRESS BAR */}
+
+  {task?.subtaskCount > 0 && (
+    <div className="mt-2">
+
+      <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+
+        <div
+          className="h-1.5 bg-green-500 rounded-full transition-all duration-500"
+          style={{ width: `${task.progress || 0}%` }}
+        />
+
       </div>
 
-      {/* ================= ATTACHMENTS ================= */}
-      {task?.attachments?.length > 0 && (
-        <ul className="mt-3 space-y-1 text-xs">
-          {task.attachments.map((a, i) => (
-            <li key={a?.url || `attachment-${i}`}>
-              <a
-                href={a?.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-blue-500 hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                📎 {a?.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="flex justify-end text-[10px] text-gray-500 mt-1">
+        {task.completedSubtasks || 0}/{task.subtaskCount}
+      </div>
+
     </div>
-  );
+  )}
+
+  {/* DUE DATE */}
+
+  {task?.dueDate && (
+    <div className="mt-2">
+      <span
+        className={`text-[11px] font-medium px-2 py-1 rounded-full ${dueColor()}`}
+      >
+        ⏰ {format(new Date(task.dueDate), "MMM d")}
+      </span>
+    </div>
+  )}
+
+  {/* ASSIGNEE */}
+
+  {task?.assignees?.length > 0 && (
+    <div className="flex items-center gap-2 mt-3">
+
+      <img
+        src={
+          myAssignment?.avatar ||
+          task.assignees[0]?.avatar ||
+          `https://ui-avatars.com/api/?name=${
+            myAssignment?.name || task.assignees[0]?.name
+          }`
+        }
+        alt="assignee"
+        className="w-7 h-7 rounded-full object-cover"
+      />
+
+      <span className="text-xs text-gray-600 dark:text-gray-300">
+        {myAssignment ? "You" : task.assignees[0]?.name}
+      </span>
+
+    </div>
+  )}
+
+  {/* SUBTASK LIST */}
+
+  {subtasks.length > 0 && (
+
+    <div className="mt-3 space-y-1 max-h-32 overflow-y-auto pr-1">
+
+      {subtasks.map(sub => (
+
+        <div
+          key={sub._id}
+          className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"
+        >
+
+          <input
+            type="checkbox"
+            checked={sub.status === "completed"}
+            disabled={!isAssigned}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => toggleSubtask(e, sub._id)}
+            className={`cursor-pointer ${!isAssigned ? "opacity-50 cursor-not-allowed" : ""}`}
+          />
+          <span
+            className={
+              sub.status === "completed"
+                ? "line-through opacity-60"
+                : ""
+            }
+          >
+            {sub.title}
+          </span>
+
+        </div>
+
+      ))}
+
+    </div>
+
+  )}
+
+
+</motion.div>
+
+);
+
 }
 
 export default memo(TaskCard);

@@ -22,7 +22,13 @@ export function AuthProvider({ children }) {
           setUser(res.data);
         }
       })
-      .catch(() => logout())
+      .catch((err) => {
+        if (err.response?.status === 401) {
+          logout();
+        } else {
+          console.warn("Auth check failed but session preserved");
+        }
+      })
       .finally(() => setAuthReady(true));
   }, []);
 

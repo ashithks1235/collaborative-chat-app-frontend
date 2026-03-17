@@ -17,9 +17,19 @@ export default function AdminUsers() {
     useFetch(() => getAllUsers(), []);
 
   const [processing, setProcessing] = useState(null);
+  const [search, setSearch] = useState("");
 
   if (loading) return <Loader />;
   if (error) return <ErrorBox message={error} />;
+
+  const filteredUsers =
+    users
+      ?.filter((u) => u.role !== "Admin")
+      ?.filter(
+        (u) =>
+          u.name.toLowerCase().includes(search.toLowerCase()) ||
+          u.email.toLowerCase().includes(search.toLowerCase())
+      ) || [];
 
   /* ===============================
      DEACTIVATE / ACTIVATE
@@ -78,41 +88,81 @@ export default function AdminUsers() {
     }
   };
 
-  /* ===============================
-     UI
-  =============================== */
   return (
-  <div className="p-6 space-y-6">
-    <h2 className="text-2xl font-semibold">Manage Users</h2>
+    <div className="p-6 space-y-6">
 
-    <div className="bg-white shadow rounded-xl p-4 space-y-3">
-      {users
-        ?.filter((u) => u.role !== "Admin") // hide super admin
-        .map((u) => (
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold">
+          Manage Users
+        </h2>
+
+        <input
+          placeholder="Search users..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm w-64 dark:bg-gray-800"
+        />
+      </div>
+
+      <div className="bg-white dark:bg-gray-900 shadow rounded-xl">
+
+        {filteredUsers.length === 0 && (
+          <p className="p-6 text-sm text-gray-500">
+            No users found
+          </p>
+        )}
+
+        {filteredUsers.map((u) => (
           <div
             key={u._id}
-            className="flex justify-between items-center border-b pb-3"
+            className="flex justify-between items-center px-6 py-4 drop-shadow-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition gap-1"
           >
-            <div>
-              <div className="font-medium">{u.name}</div>
-              <div className="text-xs text-gray-500">{u.email}</div>
-              <div
-                className={`text-xs mt-1 ${
-                  u.isActive ? "text-green-500" : "text-red-500"
-                }`}
-              >
-                {u.isActive ? "Active" : "Inactive"}
+
+            {/* USER INFO */}
+            <div className="flex items-center gap-4">
+
+              <img
+                src={
+                  u.avatar ||
+                  `https://ui-avatars.com/api/?name=${u.name}`
+                }
+                className="w-10 h-10 rounded-full"
+              />
+
+              <div>
+                <div className="font-medium">
+                  {u.name}
+                </div>
+
+                <div className="text-xs text-gray-500">
+                  {u.email}
+                </div>
+
+                <span
+                  className={`text-xs mt-1 inline-block px-2 py-0.5 rounded-full
+                  ${
+                    u.isActive
+                      ? "bg-green-100 text-green-600"
+                      : "bg-red-100 text-red-600"
+                  }`}
+                >
+                  {u.isActive ? "Active" : "Inactive"}
+                </span>
+
               </div>
+
             </div>
 
-            <div className="flex gap-2 items-center">
+            {/* ACTIONS */}
+            <div className="flex gap-3 items-center">
+
               <select
                 value={u.role}
                 onChange={(e) =>
                   changeRole(u._id, e.target.value)
                 }
                 disabled={processing === u._id}
-                className="border px-2 py-1 text-sm rounded"
+                className="bg-gray-50 px-4 py-2 text-sm rounded-2xl hover:border dark:bg-gray-800"
               >
                 <option value="Member">Member</option>
                 <option value="Moderator">Moderator</option>
@@ -121,7 +171,7 @@ export default function AdminUsers() {
               <button
                 disabled={processing === u._id}
                 onClick={() => toggleStatus(u)}
-                className="text-yellow-600 text-sm"
+                className="bg-yellow-500 text-sm text-white py-1 px-4 rounded-2xl hover:bg-yellow-600"
               >
                 {u.isActive ? "Deactivate" : "Activate"}
               </button>
@@ -129,15 +179,16 @@ export default function AdminUsers() {
               <button
                 disabled={processing === u._id}
                 onClick={() => removeUser(u._id)}
-                className="text-red-500 text-sm"
+                className="bg-red-500 text-sm text-white py-1 px-4 rounded-2xl hover:bg-red-600"
               >
                 Delete
               </button>
+
             </div>
+
           </div>
         ))}
+      </div>
     </div>
-  </div>
-);
-
+  );
 }

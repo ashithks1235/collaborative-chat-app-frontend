@@ -18,7 +18,7 @@ export default function NotesGrid() {
     <div className="bg-white dark:bg-gray-800 shadow rounded-xl p-5 transition-colors">
       <h3 className="font-semibold mb-3">Notes</h3>
 
-      <div className="grid grid-cols-3 gap-4 h-52">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 h-52">
 
         {/* 📝 NEW NOTE CARD */}
         <div

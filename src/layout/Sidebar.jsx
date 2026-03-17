@@ -4,12 +4,11 @@ import {
 } from "react-icons/ri";
 import {
   FiSettings,
-  FiHelpCircle,
-  FiUsers,
-  FiActivity
+  FiUsers
 } from "react-icons/fi";
 import {
-  MdVideoLibrary
+  MdVideoLibrary,
+  MdVideoCall
 } from "react-icons/md";
 import {
   FaProjectDiagram,
@@ -65,7 +64,6 @@ export default function Sidebar() {
           {nav("/admin/users", <FiUsers />, "Users")}
           {nav("/admin/channels", <FaProjectDiagram />, "Channels")}
           {nav("/admin/analytics", <FaChartBar />, "Analytics")}
-          {nav("/admin/activity", <FiActivity />, "System Activity")}
         </div>
 
         <div className="pb-6">
@@ -99,7 +97,21 @@ export default function Sidebar() {
       </div>
 
       <div className="pb-6">
-        {nav("/help", <FiHelpCircle />, "Help & Support")}
+        <NavLink
+          to="/meeting"
+          onClick={() => setShowThreadPanel(false)}
+          className={({ isActive }) =>
+            `flex items-center gap-2 p-2 px-4 text-sm transition
+            ${
+              isActive
+                ? "bg-blue-600 text-white font-semibold border-r-4 border-blue-700"
+                : "text-blue-600 hover:bg-blue-50"
+            }`
+          }
+        >
+          <MdVideoCall />
+          <span>Video Meeting</span>
+        </NavLink>
 
         <button
           onClick={handleLogout}

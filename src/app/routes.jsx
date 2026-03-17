@@ -14,7 +14,7 @@ import AppLayout from "../layout/AppLayout";
 import SearchPage from "../pages/Search";
 import ProjectPage from "../pages/Project";
 import LibraryPage from "../pages/Library";
-import HelpPage from "../pages/HelpPage";
+import Meeting from "../pages/Meeting";
 import NotesPage from "../pages/Notes";
 import AddNote from "../pages/notes/AddNote";
 import ViewNote from "../pages/notes/ViewNote";
@@ -23,11 +23,12 @@ import AdminDashboard from "../components/admin/AdminDashboard";
 import AdminUsers from "../components/admin/AdminUsers";
 import AdminChannels from "../components/admin/AdminChannels";
 import AdminAnalytics from "../components/admin/AdminAnalytics";
-import AdminActivity from "../components/admin/AdminActivity";
 import ChannelSettings from "../pages/channel/ChannelSettings";
 import AdminChannelView from "../pages/admin/AdminChannelView";
 import { AnimatePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
+import PageNotFound from "../pages/PageNotFound";
+
 
 /* -----------------------------
    AUTH GUARDS
@@ -74,7 +75,7 @@ export default function AppRoutes() {
 
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+      <Routes location={location}>
         {/* Public-only */}
         <Route element={<PublicOnly />}>
           <Route path="/login" element={<Login />} />
@@ -95,7 +96,7 @@ export default function AppRoutes() {
             <Route path="/projects/:id" element={<ProjectPage />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="/help" element={<HelpPage />} />
+            <Route path="/meeting" element={<Meeting />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/notes/new" element={<AddNote />} />
             <Route path="/notes/:id" element={<ViewNote />} />
@@ -105,7 +106,6 @@ export default function AppRoutes() {
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/channels" element={<AdminChannels />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
-              <Route path="/admin/activity" element={<AdminActivity />} />
               <Route
                 path="/admin/channels/:id"
                 element={
@@ -120,7 +120,7 @@ export default function AppRoutes() {
         </Route>
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<PageNotFound />} />
       </Routes>
     </AnimatePresence>
   );

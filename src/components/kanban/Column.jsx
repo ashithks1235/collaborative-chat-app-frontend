@@ -5,7 +5,7 @@ import TaskCard from "./TaskCard";
 import { useAuthContext } from "../../context/AuthContext";
 import CreateTaskModal from "./CreateTaskModal";
 
-function Column({ column, onOpenTask }) {
+function Column({ column, projectId, members, onOpenTask, refetchTasks }) {
   if (!column) return null;
 
   const tasks = column.tasks || [];
@@ -43,14 +43,13 @@ function Column({ column, onOpenTask }) {
     <div
       ref={setNodeRef}
       className={`
-        w-72 flex-shrink-0
-        bg-white/70 dark:bg-gray-900/60
-        backdrop-blur-md
-        rounded-2xl
-        transition-all duration-200
-        flex flex-col
-        max-h-[calc(100vh-140px)]
-        ${isOver ? "ring-2 ring-blue-400" : ""}
+        w-full min-w-0
+       bg-white dark:bg-gray-900
+        rounded-xl
+        shadow-sm border border-gray-200 dark:border-gray-800
+        flex flex-col h-full self-start
+        transition-all duration-200 ease-out
+        ${isOver ? "ring-2 ring-blue-400 scale-[1.02]" : ""}
       `}
     >
 
@@ -94,7 +93,7 @@ function Column({ column, onOpenTask }) {
         items={tasks.map(task => task._id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="mt-4 space-y-4 overflow-y-auto px-1 pb-4 min-h-[60px]">
+        <div className="mt-4 space-y-3 px-1 pb-4 h-full max-h-[calc(100vh-320px)] overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
           {tasks.length === 0 ? (
             <div className="text-center text-xs text-gray-400 dark:text-gray-500 py-8">
               Drop tasks here
@@ -103,10 +102,11 @@ function Column({ column, onOpenTask }) {
             tasks.map((task, index) => (
               <TaskCard
                 key={task._id}
-                task={task}
+                task={{ ...task, columnTitle: column.title }}
                 columnId={column._id}
                 index={index}
                 onOpen={onOpenTask}
+                refetchTasks={refetchTasks}
               />
             ))
           )}
@@ -115,7 +115,9 @@ function Column({ column, onOpenTask }) {
 
       {showCreate && (
         <CreateTaskModal
+          projectId={projectId}
           columnId={column._id}
+          members={members}
           onClose={() => setShowCreate(false)}
         />
       )}

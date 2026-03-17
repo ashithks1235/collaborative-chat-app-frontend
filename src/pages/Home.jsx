@@ -17,15 +17,13 @@ export default function Home() {
   const { data, loading, error } = useFetch(fetchDashboard, []);
 
 if (user?.role === "Admin") {
-  return <AdminDashboard />;
-}
-
-if (user?.role === "Admin") {
   return <Navigate to="/admin/dashboard" replace />;
 }
 
 if (loading) return <Loader />;
 if (error) return <ErrorBox message={error} />;
+
+console.log("Dashboard data:", data);
 
   const recentChats = data.channels.map(c => ({
     id: c._id,
@@ -50,7 +48,7 @@ if (error) return <ErrorBox message={error} />;
   }));
 
   return (
-    <motion.div className="h-full space-y-6 p-6 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 transition-colors shadow"
+    <motion.div className="min-h-full space-y-6 p-6 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 transition-colors"
     initial={{ opacity: 0, y: 10 }}
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: -10 }}
@@ -58,7 +56,7 @@ if (error) return <ErrorBox message={error} />;
       <TodayFocus />
       
       {/* 🔹 RECENT SECTION */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <RecentCard title="Recent Chats" items={recentChats} type="chat" />
         <RecentCard title="Recent Tasks" items={recentTasks} type="task" />
         <RecentCard title="Recent Projects" items={recentProjects} type="project" />
@@ -69,7 +67,7 @@ if (error) return <ErrorBox message={error} />;
 
       {/* 🔹 DASHBOARD STATS */}
       <Card title="Dashboard">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Stat 
             label="Total Tasks Assigned to Me" 
             value={data.stats.totalTasks} 

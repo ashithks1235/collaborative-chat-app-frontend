@@ -60,33 +60,55 @@ export default function ChannelList() {
 
       {/* CREATE MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg w-72 space-y-3">
+        <div
+          className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-2xl"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                Create Channel
+              </h3>
+              <p className="text-xs text-gray-500">
+                Channels help organize conversations.
+              </p>
+            </div>
 
-            <h3 className="font-semibold">Create Channel</h3>
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <input
+                className="
+                w-full px-3 py-2 text-sm rounded-lg border
+                border-gray-300 dark:border-gray-600
+                bg-white dark:bg-gray-700
+                focus:outline-none focus:ring-2 focus:ring-blue-500
+                "
+                placeholder="e.g. marketing"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
 
-            <input
-              className="w-full border p-2 rounded"
-              placeholder="channel name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+              {error && (
+                <p className="text-red-500 text-xs">{error}</p>
+              )}
+            </div>
 
-            {error && (
-              <p className="text-red-500 text-xs">{error}</p>
-            )}
-
-            <div className="flex justify-end gap-2">
+            {/* Footer */}
+            <div className="px-6 py-4 flex justify-end gap-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-3 py-1 text-sm"
+                className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
 
               <button
                 onClick={handleCreate}
-                className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
               >
                 Create
               </button>

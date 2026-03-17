@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiX } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { updateTask } from "../../api/task.api";
@@ -9,6 +9,12 @@ export default function TaskEditDrawer({ task, onClose, onSaved }) {
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority || "medium");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setTitle(task.title);
+    setDescription(task.description || "");
+    setPriority(task.priority || "medium");
+  }, [task]);
 
   const save = async () => {
     if (!title.trim()) {
@@ -45,6 +51,7 @@ export default function TaskEditDrawer({ task, onClose, onSaved }) {
     <AnimatePresence>
       {/* BACKDROP */}
       <motion.div
+        key="drawer-backdrop"
         className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -54,6 +61,7 @@ export default function TaskEditDrawer({ task, onClose, onSaved }) {
 
       {/* DRAWER */}
       <motion.div
+        key="drawer-panel"
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
         exit={{ x: "100%" }}

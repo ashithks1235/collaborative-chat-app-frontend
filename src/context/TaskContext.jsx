@@ -16,10 +16,13 @@ export function TaskProvider({ children }) {
   };
 
   const loadTasks = async () => {
-    const res = await api.get("/tasks/my");
-    setTasks(res.data);
+    try {
+      const res = await api.get("/tasks/my");
+      setTasks(res.data || []);
+    } catch (err) {
+      console.error("Failed to load tasks", err);
+    }
   };
-
   // 🔐 WAIT FOR AUTH
   useEffect(() => {
     if (!authReady || !user) return;

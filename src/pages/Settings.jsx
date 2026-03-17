@@ -2,215 +2,302 @@ import { useState } from "react";
 import api from "../api/axios";
 import { useUI } from "../context/UIContext";
 import { useAuthContext } from "../context/AuthContext";
-import { FiChevronDown } from "react-icons/fi";
+import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import RoleBadge from "../components/common/RoleBadge";
-import { motion } from "framer-motion";
 
 export default function Settings() {
+
   const { theme, setTheme, notificationsEnabled, setNotificationsEnabled } = useUI();
   const { user, setUser } = useAuthContext();
 
   const [name, setName] = useState(user?.name || "");
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
 
-  /* ================= PROFILE SAVE ================= */
+  const [loading, setLoading] = useState(false);
+
+  /* ================= PROFILE UPDATE ================= */
+
   const saveProfile = async () => {
-    const formData = new FormData();
-    formData.append("name", name);
-    if (avatarFile) formData.append("avatar", avatarFile);
+    try {
 
-    const res = await api.put("/users/me", formData);
-    setUser(res.data);
-    toast.success("Profile updated successfully 🎉");
+      setLoading(true);
+
+      const formData = new FormData();
+
+      formData.append("name", name);
+
+      if (avatarFile) {
+        formData.append("avatar", avatarFile);
+      }
+
+      const res = await api.put("/users/me", formData);
+
+      setUser(res.data);
+
+      toast.success("Profile updated successfully");
+
+    } catch {
+      toast.error("Failed to update profile");
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ================= PASSWORD CHANGE ================= */
+
   const changePassword = async () => {
-    if (!currentPassword || !newPassword) return;
+    try {
 
-    await api.put("/users/change-password", {
-      currentPassword,
-      newPassword,
-    });
+      if (!currentPassword || !newPassword) {
+        toast.error("Fill all password fields");
+        return;
+      }
 
-    setCurrentPassword("");
-    setNewPassword("");
-    toast.success("Password changed successfully 🔐");
+      await api.put("/users/change-password", {
+        currentPassword,
+        newPassword
+      });
+
+      setCurrentPassword("");
+      setNewPassword("");
+
+      toast.success("Password updated");
+
+    } catch (err) {
+        toast.error(err.response?.data?.message || "Password change failed");
+      }
   };
 
   /* ================= DELETE ACCOUNT ================= */
+
   const deleteAccount = async () => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete your account?"
-    );
-    if (!confirmDelete) return;
 
-    await api.delete("/users/me");
+    if (!window.confirm("Delete your account permanently?")) return;
 
-    toast.success("Account deleted");
-    setTimeout(() => {
+    try {
+
+      await api.delete("/users/me");
+
       localStorage.removeItem("token");
+
       window.location.href = "/login";
-    }, 1500);
+
+    } catch {
+
+      toast.error("Account deletion failed");
+
+    }
+
   };
+
+  /* ================= AVATAR CHANGE ================= */
 
   const handleAvatarChange = (file) => {
+
     setAvatarFile(file);
+
     setAvatarPreview(URL.createObjectURL(file));
+
   };
 
-  /* ================= PERMISSION MATRIX ================= */
-  const permissions = [
-    { name: "Create Channel", admin: true, mod: false, member: false },
-    { name: "Delete Channel", admin: true, mod: false, member: false },
-    { name: "Convert Message → Task", admin: true, mod: true, member: false },
-    { name: "Create Task", admin: true, mod: true, member: false },
-    { name: "Delete Any Task", admin: true, mod: false, member: false },
-    { name: "Delete Own Task", admin: true, mod: true, member: false },
-    { name: "View Activity Feed", admin: true, mod: true, member: true },
-  ];
-
-  const highlight = (roleColumn) =>
-    user?.role === roleColumn
-      ? "bg-blue-50 dark:bg-blue-900/30 font-semibold"
-      : "";
-
   return (
-    <motion.div className="p-6 space-y-8 bg-white dark:bg-gray-800 min-h-screen text-gray-800 dark:text-gray-100"
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -10 }}
-    transition={{ duration: 0.25 }}>
 
-      <h2 className="text-2xl font-semibold">Settings</h2>
+    <motion.div
+      className="p-6 space-y-8 bg-gray-50 dark:bg-gray-950 min-h-screen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+
+      <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
+        Settings
+      </h1>
 
       {/* ================= PROFILE ================= */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow space-y-6">
 
-        <h3 className="text-lg font-semibold">Profile</h3>
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow p-6 space-y-6">
 
-        <div className="flex items-center justify-between pb-6">
-          <div className="flex items-center gap-6">
-            <img
-              src={
-                avatarPreview ||
-                user?.avatar ||
-                `https://ui-avatars.com/api/?name=${user?.name}`
-              }
-              className="w-24 h-24 rounded-full object-cover"
-            />
+        <h2 className="text-lg font-semibold">Profile</h2>
 
-            <div>
-              <p className="font-semibold text-lg">{user?.name}</p>
-              <p className="text-sm text-gray-500">{user?.email}</p>
-              <RoleBadge role={user?.role} />
-            </div>
+        <div className="flex items-center gap-6">
+
+          <img
+            src={
+              avatarPreview ||
+              user?.avatar ||
+              `https://ui-avatars.com/api/?name=${user?.name}`
+            }
+            className="w-24 h-24 rounded-full object-cover"
+          />
+
+          <div className="space-y-1">
+
+            <p className="font-semibold text-lg">
+              {user?.name}
+            </p>
+
+            <p className="text-sm text-gray-500">
+              {user?.email}
+            </p>
+
+            <RoleBadge role={user?.role} />
+
+          </div>
+
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+
+          <input
+            type="file"
+            onChange={(e) => handleAvatarChange(e.target.files[0])}
+            className="text-sm"
+          />
+
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Full name"
+            className="p-2 border rounded-lg dark:bg-gray-800"
+          />
+
+        </div>
+
+        <button
+          onClick={saveProfile}
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          {loading ? "Saving..." : "Save Changes"}
+        </button>
+
+      </div>
+
+      {/* ================= SECURITY ================= */}
+
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow p-6 space-y-4">
+
+        <h2 className="text-lg font-semibold">
+          Security
+        </h2>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            changePassword();
+          }}
+          className="space-y-4"
+        >
+          <input
+            type="password"
+            placeholder="Current password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="w-full p-2 border rounded-lg dark:bg-gray-800"
+          />
+
+          <input
+            type="password"
+            placeholder="New password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="w-full p-2 border rounded-lg dark:bg-gray-800"
+          />
+
+          <button
+            type="submit"
+            className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+          >
+            Update Password
+          </button>
+        </form>
+
+      </div>
+
+      {/* ================= PREFERENCES ================= */}
+
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow p-6 space-y-6">
+
+        <h2 className="text-lg font-semibold">
+          Preferences
+        </h2>
+
+        {/* Notifications */}
+
+        <div className="flex items-center justify-between">
+
+          <div>
+            <p className="font-medium">
+              Notifications
+            </p>
+
+            <p className="text-sm text-gray-500">
+              Receive activity alerts
+            </p>
+
           </div>
 
           <button
-            onClick={() => setIsEditing(!isEditing)}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <FiChevronDown
-              size={22}
-              className={`transition-transform ${
-                isEditing ? "rotate-180" : ""
-              }`}
-            />
-          </button>
+            onClick={() =>
+              setNotificationsEnabled(!notificationsEnabled)
+            }
+            className={`w-12 h-6 rounded-full transition
+              ${notificationsEnabled ? "bg-blue-500" : "bg-gray-300"}
+            `}
+          />
+
         </div>
 
-        {isEditing && (
-          <div className="space-y-6">
+        {/* Theme */}
 
-            <div>
-              <input
-                type="file"
-                onChange={(e) => handleAvatarChange(e.target.files[0])}
-              />
-            </div>
+        <div className="flex items-center justify-between">
 
-            <div>
-              <input
-                className="p-2 border rounded"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <button
-                onClick={saveProfile}
-                className="bg-blue-500 text-white px-4 py-2 rounded ml-2"
-              >
-                Save
-              </button>
-            </div>
+          <div>
+            <p className="font-medium">
+              Dark Mode
+            </p>
 
-            <div>
-              <input
-                type="password"
-                placeholder="Current Password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="p-2 border rounded"
-              />
-              <br />
-              <input
-                type="password"
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="p-2 border rounded mt-2"
-              />
-              <br />
-              <button
-                onClick={changePassword}
-                className="bg-yellow-500 text-white px-4 py-2 rounded mt-2"
-              >
-                Update Password
-              </button>
-            </div>
-
-            <div>
-              <button
-                onClick={deleteAccount}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Delete Account
-              </button>
-            </div>
-
+            <p className="text-sm text-gray-500">
+              Toggle application theme
+            </p>
           </div>
-        )}
+
+          <button
+            onClick={() =>
+              setTheme(theme === "dark" ? "light" : "dark")
+            }
+            className={`w-12 h-6 rounded-full transition
+              ${theme === "dark" ? "bg-blue-500" : "bg-gray-300"}
+            `}
+          />
+
+        </div>
+
       </div>
 
-      {/* ================= NOTIFICATIONS ================= */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-        <h3 className="font-semibold mb-3">Notifications</h3>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={notificationsEnabled}
-            onChange={() => setNotificationsEnabled(!notificationsEnabled)}
-          />
-          Enable notifications
-        </label>
-      </div>
+      {/* ================= DANGER ZONE ================= */}
 
-      {/* ================= THEME ================= */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow">
-        <h3 className="font-semibold mb-3">Appearance</h3>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={theme === "dark"}
-            onChange={() => setTheme(theme === "dark" ? "light" : "dark")}
-          />
-          Dark Mode
-        </label>
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-2xl p-6">
+
+        <h2 className="text-lg font-semibold text-red-600">
+          Danger Zone
+        </h2>
+
+        <p className="text-sm text-red-500 mb-4">
+          Deleting your account is permanent.
+        </p>
+
+        <button
+          onClick={deleteAccount}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          Delete Account
+        </button>
+
       </div>
 
     </motion.div>

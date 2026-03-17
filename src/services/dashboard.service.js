@@ -1,6 +1,3 @@
-import api from "../api/axios";
+import { getDashboardData } from "../api/dashboard.api";
 
-export const fetchDashboard = async () => {
-  const { data } = await api.get("/dashboard");
-  return data;
-};
+export const fetchDashboard = getDashboardData;

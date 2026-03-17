@@ -15,32 +15,92 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
 
   const [comments, setComments] = useState([]);
   const [text, setText] = useState("");
+  const [subtasks, setSubtasks] = useState([]);
 
   if (!task) return null;
 
   /* ================= LOAD COMMENTS ================= */
+
   useEffect(() => {
     api
       .get(`/tasks/${task._id}/comments`)
-      .then((res) => setComments(res.data))
-      .catch(() => console.log("Failed to load comments"));
+      .then((res) => {
+        const data = res.data?.data || [];
+
+        const unique = [];
+        const ids = new Set();
+
+        data.forEach((c) => {
+          if (!ids.has(c._id)) {
+            ids.add(c._id);
+            unique.push(c);
+          }
+        });
+
+        setComments(unique);
+      })
+      .catch(() => {
+        console.log("Failed to load comments");
+        setComments([]);
+      });
+  }, [task]);
+
+  /* ================= LOAD SUBTASKS ================= */
+
+  useEffect(() => {
+    api
+      .get(`/tasks/${task._id}/subtasks`)
+      .then((res) => {
+        setSubtasks(res.data?.data || []);
+      })
+      .catch(() => {
+        console.log("Failed to load subtasks");
+        setSubtasks([]);
+      });
   }, [task]);
 
   /* ================= REALTIME COMMENTS ================= */
+
   useEffect(() => {
     if (!socket) return;
 
     const handleNewComment = (c) => {
       if (c.task === task._id) {
-        setComments((prev) => [...prev, c]);
+        setComments((prev) => {
+          const exists = prev.some((x) => x._id === c._id);
+          if (exists) return prev;
+          return [...prev, c];
+        });
       }
     };
 
     socket.on("taskCommentAdded", handleNewComment);
+
     return () => socket.off("taskCommentAdded", handleNewComment);
   }, [socket, task]);
 
+  /* ================= REALTIME SUBTASK UPDATE ================= */
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSubtaskUpdate = (updated) => {
+      if (updated.parentTask === task._id) {
+        setSubtasks((prev) =>
+          prev.map((s) =>
+            s._id === updated._id ? updated : s
+          )
+        );
+      }
+    };
+
+    socket.on("subtask:updated", handleSubtaskUpdate);
+
+    return () => socket.off("subtask:updated", handleSubtaskUpdate);
+  }, [socket, task]);
+
   /* ================= SEND COMMENT ================= */
+
   const send = async () => {
     if (!text.trim()) return;
 
@@ -52,7 +112,42 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
     }
   };
 
-  /* ================= DELETE ================= */
+  /* ================= CONVERT COMMENT ================= */
+
+  const convertCommentToTask = async (comment) => {
+    try {
+      await api.post(`/comments/${comment._id}/convert-to-task`, {
+        projectId: task.project
+      });
+
+      toast.success("Comment converted to subtask");
+    } catch {
+      toast.error("Failed to convert comment");
+    }
+  };
+
+  /* ================= TOGGLE SUBTASK ================= */
+
+  const toggleSubtask = async (subtaskId) => {
+  try {
+
+    const res = await api.patch(`/subtasks/${subtaskId}/toggle`);
+
+    const updated = res.data.data;
+
+    setSubtasks(prev =>
+      prev.map(s =>
+        s._id === updated._id ? updated : s
+      )
+    );
+
+  } catch (err) {
+    toast.error("Failed to update subtask");
+  }
+};
+
+  /* ================= DELETE TASK ================= */
+
   const canDelete =
     user?.role === "Admin" ||
     task.createdBy?._id === user?.id;
@@ -60,15 +155,18 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
   const handleDelete = async () => {
     try {
       await api.delete(`/tasks/${task._id}`);
+
       setTasks((prev) =>
         prev.filter((t) => t._id !== task._id)
       );
+
       toast.success("Task deleted");
       onClose();
     } catch {
       toast.error("Not authorized");
     }
   };
+
 
   const priorityStyles = {
     low: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400",
@@ -79,24 +177,24 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-center items-center"
+        className="fixed inset-0 z-50 flex justify-end bg-black/30"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0 }}
+          initial={{ x: 400 }}
+          animate={{ x: 0 }}
+          exit={{ x: 400 }}
           transition={{ type: "spring", stiffness: 260 }}
           onClick={(e) => e.stopPropagation()}
           className="
-            w-full max-w-2xl
+            w-full max-w-lg h-full
             bg-white dark:bg-gray-900
-            rounded-2xl
             shadow-2xl
             p-8
+            overflow-y-auto
             relative
           "
         >
@@ -166,10 +264,23 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
               Description
             </h3>
+
             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
               {task.description || "No description provided."}
             </div>
           </div>
+
+          {/* ================= SUBTASKS ================= */}
+
+          {subtasks.length > 0 && (
+            <div className="mt-6">
+
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+                Subtasks
+              </h3>
+
+            </div>
+          )}
 
           {/* ACTIONS */}
           <div className="flex gap-4 mt-6">
@@ -199,19 +310,40 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
             </h3>
 
             <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-              {comments.map((c) => (
-                <div
-                  key={c._id}
-                  className="bg-gray-100 dark:bg-gray-800 p-3 rounded-xl text-sm"
-                >
-                  <div className="font-medium text-gray-800 dark:text-gray-200">
-                    {c.user?.username}
+              {Array.isArray(comments) &&
+                comments.map((c) => (
+                  <div
+                    key={`${c._id}-${c.createdAt || ""}`}
+                    className="flex gap-3 bg-gray-50 dark:bg-gray-800 p-3 rounded-xl"
+                  >
+                    <img
+                      src={
+                        c.user?.avatar ||
+                        `https://ui-avatars.com/api/?name=${c.user?.name}`
+                      }
+                      className="w-8 h-8 rounded-full"
+                    />
+
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        {c.user?.name}
+                      </div>
+
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {c.text}
+                      </div>
+
+                      {user?.role === "Moderator" && (
+                        <button
+                          onClick={() => convertCommentToTask(c)}
+                          className="text-xs text-blue-500 mt-2 hover:underline"
+                        >
+                          Convert to task
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-gray-600 dark:text-gray-400 mt-1">
-                    {c.text}
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
 
             {/* ADD COMMENT */}
@@ -226,6 +358,7 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
                 "
                 placeholder="Write a comment..."
               />
+
               <button
                 onClick={send}
                 className="bg-blue-500 text-white px-4 rounded-lg text-sm hover:bg-blue-600 transition"

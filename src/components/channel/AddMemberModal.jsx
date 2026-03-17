@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../api/axios";
 import toast from "react-hot-toast";
-import { FiX } from "react-icons/fi";
+import { FiX, FiUserPlus } from "react-icons/fi";
 import { useAuthContext } from "../../context/AuthContext";
 
 export default function AddMemberModal({
@@ -14,7 +14,7 @@ export default function AddMemberModal({
 
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingUserId, setLoadingUserId] = useState(null);
 
   /* ===========================
      LOAD USERS
@@ -37,7 +37,7 @@ export default function AddMemberModal({
   =========================== */
   const addMember = async (userId) => {
     try {
-      setLoading(true);
+      setLoadingUserId(userId);
 
       await api.post(`/channels/${channelId}/members`, {
         userId
@@ -51,31 +51,23 @@ export default function AddMemberModal({
         err.response?.data?.message || "Failed to add member"
       );
     } finally {
-      setLoading(false);
+      setLoadingUserId(null);
     }
   };
 
   /* ===========================
      FILTER USERS
-     - hide Admin
-     - hide self
-     - hide already members
-     - apply search
   =========================== */
+
+  const memberIds = currentMembers.map((m) => String(m._id));
+
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.name?.toLowerCase().includes(search.toLowerCase());
 
     const isAdmin = u.role === "Admin";
-
-    // 🔥 FIXED HERE
-    const isSelf =
-      String(u._id) === String(user?._id);
-
-    const isAlreadyMember =
-      currentMembers.some(
-        (m) => String(m._id) === String(u._id)
-      );
+    const isSelf = String(u._id) === String(user?._id);
+    const isAlreadyMember = memberIds.includes(String(u._id));
 
     return matchesSearch && !isAdmin && !isSelf && !isAlreadyMember;
   });
@@ -83,14 +75,16 @@ export default function AddMemberModal({
   /* ===========================
      UI
   =========================== */
+
   return (
-    <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-xl shadow-xl p-5 relative">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50">
+
+      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-xl shadow-xl p-6 relative">
 
         {/* CLOSE */}
         <FiX
           onClick={onClose}
-          className="absolute top-4 right-4 cursor-pointer text-gray-500"
+          className="absolute top-4 right-4 cursor-pointer text-gray-400 hover:text-gray-600"
         />
 
         <h2 className="text-lg font-semibold mb-4">
@@ -100,17 +94,18 @@ export default function AddMemberModal({
         {/* SEARCH */}
         <input
           type="text"
-          placeholder="Search user..."
+          placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full mb-4 px-3 py-2 border rounded-lg text-sm"
+          className="w-full mb-4 px-3 py-2 border rounded-lg text-sm
+          focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
         {/* USER LIST */}
-        <div className="max-h-64 overflow-y-auto space-y-2">
+        <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
 
           {filteredUsers.length === 0 && (
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs text-gray-400 text-center py-6">
               No users available
             </p>
           )}
@@ -118,22 +113,49 @@ export default function AddMemberModal({
           {filteredUsers.map((u) => (
             <div
               key={u._id}
-              className="flex items-center justify-between p-2 border rounded-lg text-sm"
+              className="flex items-center justify-between p-3 rounded-lg border
+              hover:bg-gray-50 dark:hover:bg-gray-700 transition"
             >
-              <div>
-                <p className="font-medium">{u.name}</p>
-                <p className="text-xs text-gray-500">
-                  {u.email}
-                </p>
+
+              {/* USER INFO */}
+              <div className="flex items-center gap-3">
+
+                <img
+                  src={
+                    u.avatar ||
+                    `https://ui-avatars.com/api/?name=${u.name}`
+                  }
+                  className="w-8 h-8 rounded-full object-cover"
+                  alt="avatar"
+                />
+
+                <div>
+                  <p className="text-sm font-medium">
+                    {u.name}
+                  </p>
+
+                  <p className="text-xs text-gray-400">
+                    {u.email}
+                  </p>
+                </div>
+
               </div>
 
+              {/* ADD BUTTON */}
               <button
-                disabled={loading}
+                disabled={loadingUserId === u._id}
                 onClick={() => addMember(u._id)}
-                className="px-3 py-1 rounded text-xs transition bg-blue-500 text-white hover:bg-blue-600"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs
+                bg-blue-500 text-white hover:bg-blue-600
+                disabled:opacity-50 transition"
               >
-                Add
+                <FiUserPlus size={12} />
+
+                {loadingUserId === u._id
+                  ? "Adding..."
+                  : "Add"}
               </button>
+
             </div>
           ))}
 

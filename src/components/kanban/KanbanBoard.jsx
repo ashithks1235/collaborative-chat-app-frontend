@@ -2,23 +2,39 @@ import { useEffect, useState } from "react";
 import {
   DndContext,
   closestCorners,
-  DragOverlay
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors
 } from "@dnd-kit/core";
 import { getProjectBoard, moveTask } from "../../api/task.api";
 import { useSocketContext } from "../../context/SocketContext";
 import Column from "./Column";
 import TaskDetailModal from "./TaskDetailModal";
 import TaskEditDrawer from "./TaskEditDrawer";
+import { useTaskContext } from "../../context/TaskContext";
+import api from "../../api/axios";
 
-export default function KanbanBoard({ projectId }) {
+export default function KanbanBoard({ projectId, search = "", groupBy = "status" , refetchTasks}) {
   const { socket } = useSocketContext();
+  const { setTasks } = useTaskContext();
 
   const [columns, setColumns] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
   const [activeTask, setActiveTask] = useState(null);
+  const [members, setMembers] = useState([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6
+      }
+    })
+  );
 
   /* ================= FETCH BOARD ================= */
+
   useEffect(() => {
     if (!projectId) return;
 
@@ -34,7 +50,77 @@ export default function KanbanBoard({ projectId }) {
     fetchBoard();
   }, [projectId]);
 
+  /* ================= FETCH PROJECT MEMBERS ================= */
+
+  useEffect(() => {
+    if (!projectId) return;
+
+    const fetchMembers = async () => {
+      try {
+        const res = await api.get(`/projects/${projectId}`);
+        setMembers(res.data?.data?.project?.members || []);
+      } catch (err) {
+        console.error("Failed to load project members");
+      }
+    };
+
+    fetchMembers();
+  }, [projectId]);
+
+  const filteredColumns = columns.map(col => {
+
+  let tasks = [...(col.tasks || [])]; // clone tasks safely
+
+  /* ===== SEARCH FILTER ===== */
+  if (search && search.trim() !== "") {
+    tasks = tasks.filter(task =>
+      task.title?.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+
+  /* ===== GROUP BY ASSIGNEE ===== */
+  if (groupBy === "assignee") {
+    tasks = [...tasks].sort((a, b) => {
+      const aName = a.assignees?.[0]?.name || "";
+      const bName = b.assignees?.[0]?.name || "";
+      return aName.localeCompare(bName);
+    });
+  }
+
+  /* ===== GROUP BY PRIORITY ===== */
+  if (groupBy === "priority") {
+    const order = { high: 1, medium: 2, low: 3 };
+
+    tasks = [...tasks].sort(
+      (a, b) => (order[a.priority] || 4) - (order[b.priority] || 4)
+    );
+  }
+
+  return {
+    ...col,
+    tasks
+  };
+
+});
+
+  /* ================= SYNC TASKS TO CONTEXT ================= */
+
+    useEffect(() => {
+
+  const allTasks = columns.flatMap(col =>
+    (col.tasks || []).map(task => ({
+      ...task,
+      status: col.title.toLowerCase() // derive status from column
+    }))
+  );
+
+  setTasks(allTasks);
+
+}, [columns, setTasks]);
+
+
   /* ================= SOCKET ROOM ================= */
+
   useEffect(() => {
     if (!socket || !projectId) return;
 
@@ -46,40 +132,86 @@ export default function KanbanBoard({ projectId }) {
   }, [socket, projectId]);
 
   /* ================= REALTIME ================= */
+
   useEffect(() => {
     if (!socket) return;
 
-    const handleCreated = (task) => {
+    /* ===== COMMENT ADDED ===== */
+
+    const handleCommentAdded = (comment) => {
+
       setColumns(prev => {
+
         const updated = structuredClone(prev);
-        const col = updated.find(c => c._id === task.column);
-        if (col) col.tasks.push(task);
+
+        updated.forEach(col => {
+
+          const task = col.tasks.find(t => t._id === comment.task);
+
+          if (task) {
+            task.commentsCount = (task.commentsCount || 0) + 1;
+
+            if (!task.commentUsers) task.commentUsers = [];
+
+            if (!task.commentUsers.includes(comment.user._id)) {
+              task.commentUsers.push(comment.user._id);
+            }
+          }
+
+        });
+
         return updated;
       });
+
     };
+
+    /* ===== TASK CREATED ===== */
+
+    const handleCreated = (task) => {
+
+      setColumns(prev => {
+
+        const updated = structuredClone(prev);
+
+        const column = updated.find(
+          c => c._id.toString() === task.column.toString()
+        );
+
+        if (!column) return prev;
+
+        column.tasks = [...column.tasks, task];
+
+        column.tasks.sort((a, b) => a.order - b.order);
+
+        return updated;
+
+      });
+
+    };
+
+    /* ===== TASK MOVED ===== */
 
     const handleMoved = (task) => {
       setColumns(prev => {
         const updated = structuredClone(prev);
 
-        // Remove task from all columns
         updated.forEach(c => {
-          c.tasks = c.tasks.filter(t => t._id !== task._id);
+          c.tasks = c.tasks.filter(t => t._id.toString() !== task._id.toString());
         });
 
-        // Find target column
-        const newCol = updated.find(c => c._id === task.column);
+        const newCol = updated.find(
+          c => c._id.toString() === task.column.toString()
+        );
         if (!newCol) return prev;
 
-        // Insert safely
         newCol.tasks.push(task);
-
-        // Sort column by order (important)
         newCol.tasks.sort((a, b) => a.order - b.order);
 
         return updated;
       });
     };
+
+    /* ===== TASK DELETED ===== */
 
     const handleDeleted = (taskId) => {
       setColumns(prev =>
@@ -90,18 +222,95 @@ export default function KanbanBoard({ projectId }) {
       );
     };
 
+    /* ===== SUBTASK UPDATED ===== */
+
+    const handleSubtaskCreated = (subtask) => {
+      setColumns(prev => {
+        const updated = structuredClone(prev);
+        updated.forEach(col => {
+          col.tasks.forEach(task => {
+            if (task._id === subtask.parentTask) {
+              // increase total count
+              task.subtaskCount = (task.subtaskCount || 0) + 1;
+              // ensure array exists
+              if (!task.subtasks) {
+                task.subtasks = [];
+              }
+              // add newest subtask
+              task.subtasks.unshift({
+                _id: subtask._id,
+                title: subtask.title,
+                status: subtask.status || "todo",
+                parentTask: subtask.parentTask
+              });
+              // update progress
+              if (!task.completedSubtasks) {
+                task.completedSubtasks = 0;
+              }
+              task.progress = Math.round(
+                (task.completedSubtasks / task.subtaskCount) * 100
+              );
+            }
+          });
+        });
+        return updated;
+      });
+    };
+
+    const handleSubtaskUpdated = (updatedSubtask) => {
+      setColumns(prev => {
+        const updated = structuredClone(prev);
+        updated.forEach(col => {
+          col.tasks.forEach(task => {
+            if (task._id === updatedSubtask.parentTask) {
+              /* ===== UPDATE SUBTASK STATUS ===== */
+              if (task.subtasks && task.subtasks.length > 0) {
+                task.subtasks = task.subtasks.map(sub =>
+                  sub._id === updatedSubtask._id
+                    ? { ...sub, status: updatedSubtask.status }
+                    : sub
+                );
+              }
+              /* ===== UPDATE PROGRESS ===== */
+              if (updatedSubtask.status === "completed") {
+                task.completedSubtasks =
+                  (task.completedSubtasks || 0) + 1;
+              } else {
+                task.completedSubtasks =
+                  Math.max((task.completedSubtasks || 1) - 1, 0);
+              }
+              if (task.subtaskCount > 0) {
+                task.progress = Math.round(
+                  (task.completedSubtasks / task.subtaskCount) * 100
+                );
+              }
+            }
+          });
+        });
+        return updated;
+      });
+    };
+
     socket.on("task:created", handleCreated);
     socket.on("task:moved", handleMoved);
     socket.on("task:deleted", handleDeleted);
+    socket.on("taskCommentAdded", handleCommentAdded);
+    socket.on("subtask:created", handleSubtaskCreated);
+    socket.on("subtask:updated", handleSubtaskUpdated);
 
     return () => {
       socket.off("task:created", handleCreated);
       socket.off("task:moved", handleMoved);
       socket.off("task:deleted", handleDeleted);
+      socket.off("taskCommentAdded", handleCommentAdded);
+      socket.off("subtask:created", handleSubtaskCreated);
+      socket.off("subtask:updated", handleSubtaskUpdated);
     };
+
   }, [socket]);
 
   /* ================= DRAG START ================= */
+
   const handleDragStart = (event) => {
     const { active } = event;
     const taskId = active.id;
@@ -115,7 +324,8 @@ export default function KanbanBoard({ projectId }) {
     }
   };
 
-  /* ================= SAFE DRAG HANDLER ================= */
+  /* ================= DRAG END ================= */
+
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     setActiveTask(null);
@@ -135,17 +345,18 @@ export default function KanbanBoard({ projectId }) {
     const targetColumn = columns.find(c => c._id === targetColumnId);
     const orderedColumns = [...columns].sort((a, b) => a.order - b.order);
 
-      const sourceIndex = orderedColumns.findIndex(
-        c => c._id === sourceColumnId
-      );
+    const sourceIndex = orderedColumns.findIndex(
+      c => c._id === sourceColumnId
+    );
 
-      const targetIndex = orderedColumns.findIndex(
-        c => c._id === targetColumnId
-      );
+    const targetIndex = orderedColumns.findIndex(
+      c => c._id === targetColumnId
+    );
 
-      if (targetIndex - sourceIndex > 1) {
-        return;
-      }
+    if (targetIndex - sourceIndex > 1) {
+      return;
+    }
+
     if (!sourceColumn || !targetColumn) return;
 
     let newIndex;
@@ -157,7 +368,8 @@ export default function KanbanBoard({ projectId }) {
       newIndex = targetColumn.tasks.length;
     }
 
-    /* -------- Optimistic Update -------- */
+    /* ===== Optimistic Update ===== */
+
     setColumns(prev => {
       const updated = structuredClone(prev);
 
@@ -173,12 +385,14 @@ export default function KanbanBoard({ projectId }) {
 
       task.column = targetColumnId;
       task.order = newIndex;
+
       target.tasks.splice(newIndex, 0, task);
 
       return updated;
     });
 
-    /* -------- Backend Sync -------- */
+    /* ===== Backend Sync ===== */
+
     try {
       await moveTask(taskId, targetColumnId, newIndex);
     } catch (err) {
@@ -187,47 +401,69 @@ export default function KanbanBoard({ projectId }) {
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="flex flex-col h-full overflow-hidden">
 
-      <div className="flex-1 overflow-x-auto px-2 py-8">
+      <div className="flex-1 px-4 py-6 overflow-hidden">
+
         <DndContext
+          sensors={sensors}
           collisionDetection={closestCorners}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 w-max">
-            {columns.map(column => (
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredColumns.map(column => (
               <Column
                 key={column._id}
                 column={column}
+                projectId={projectId}
+                members={members}
                 onOpenTask={setSelectedTask}
+                refetchTasks={refetchTasks}
               />
             ))}
           </div>
 
-          {/* ================= DRAG OVERLAY ================= */}
           <DragOverlay>
             {activeTask ? (
               <div
                 className="
-                  w-72
+                  w-full max-w-sm
                   bg-white dark:bg-gray-900
-                  rounded-2xl
-                  p-5
+                  rounded-xl
+                  p-4
                   shadow-2xl
                   scale-105
                   opacity-95
-                  transition-all
+                  border
                 "
               >
-                <p className="font-semibold text-base text-gray-800 dark:text-gray-100">
+                <p className="font-semibold text-sm text-gray-800 dark:text-gray-100">
                   {activeTask.title}
                 </p>
+
+                {activeTask?.assignees?.[0] && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <img
+                      src={
+                        activeTask.assignees[0]?.avatar ||
+                        `https://ui-avatars.com/api/?name=${activeTask.assignees[0]?.name}`
+                      }
+                      alt="assignee"
+                      className="w-6 h-6 rounded-full"
+                    />
+                    <span className="text-xs text-gray-600 dark:text-gray-300">
+                      {activeTask.assignees[0]?.name}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : null}
           </DragOverlay>
 
         </DndContext>
+
       </div>
 
       {selectedTask && (
@@ -240,6 +476,7 @@ export default function KanbanBoard({ projectId }) {
 
       {showEdit && selectedTask && (
         <TaskEditDrawer
+          key={selectedTask._id}
           task={selectedTask}
           onClose={() => setShowEdit(false)}
           onSaved={(updatedTask) => {
@@ -254,6 +491,7 @@ export default function KanbanBoard({ projectId }) {
           }}
         />
       )}
+
     </div>
   );
 }

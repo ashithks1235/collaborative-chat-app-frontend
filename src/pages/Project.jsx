@@ -29,8 +29,9 @@ export default function ProjectPage() {
       try {
         setLoading(true);
         const res = await api.get(`/projects/${id}`);
-        setProject(res.data);
-      } catch {
+        setProject(res.data?.data?.project);
+      } catch(err) {
+        console.error(err);
         setError("Project not found");
       } finally {
         setLoading(false);
@@ -47,7 +48,7 @@ export default function ProjectPage() {
 
   return (
     <motion.div
-      className="flex flex-col h-full bg-gray-50 dark:bg-gray-950"
+      className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-gray-50 dark:bg-gray-950"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
@@ -64,7 +65,7 @@ export default function ProjectPage() {
       {/* Workspace Area */}
       <div className="flex-1 overflow-hidden">
         <KanbanBoard
-          projectId={id}
+          projectId={project._id}
           search={search}
           groupBy={groupBy}
         />

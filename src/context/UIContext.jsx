@@ -1,22 +1,28 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 const UIContext = createContext();
 
 export function UIProvider({ children }) {
+
   const [showThreadPanel, setShowThreadPanel] = useState(false);
   const [activeThread, setActiveThread] = useState(null);
 
   const [channelSearch, setChannelSearch] = useState("");
   const [notifications, setNotifications] = useState([]);
+  const [showAddMember, setShowAddMember] = useState(false);
 
   const [theme, setTheme] = useState(
     localStorage.getItem("theme") || "light"
   );
 
+  /* ================= THEME ================= */
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  /* ================= NOTIFICATION SETTINGS ================= */
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     localStorage.getItem("notifications") !== "false"
@@ -26,28 +32,37 @@ export function UIProvider({ children }) {
     localStorage.setItem("notifications", notificationsEnabled);
   }, [notificationsEnabled]);
 
-  const addNotification = (n) => {
-    setNotifications((prev) => [n, ...prev]);
-  };
+  /* ================= NOTIFICATION HELPERS ================= */
 
-  const setInitialNotifications = (list) => {
+  const addNotification = useCallback((notif) => {
+    setNotifications((prev) => {
+      const exists = prev.some(n => n._id === notif._id);
+      if (exists) return prev;
+
+      const updated = [notif, ...prev];
+      return updated.slice(0, 50);
+    });
+  }, []);
+
+  const setInitialNotifications = useCallback((list) => {
     setNotifications(list);
-  };
+  }, []);
 
-  const clearNotifications = () => {
+  const clearNotifications = useCallback(() => {
     setNotifications([]);
-  };
+  }, []);
 
-  // ✅ HELPERS (non-breaking)
-  const openThread = (message) => {
+  /* ================= THREAD HELPERS ================= */
+
+  const openThread = useCallback((message) => {
     setActiveThread(message);
     setShowThreadPanel(true);
-  };
+  }, []);
 
-  const closeThread = () => {
+  const closeThread = useCallback(() => {
     setActiveThread(null);
     setShowThreadPanel(false);
-  };
+  }, []);
 
   return (
     <UIContext.Provider
@@ -62,14 +77,20 @@ export function UIProvider({ children }) {
 
         channelSearch,
         setChannelSearch,
+
         notifications,
         addNotification,
         setInitialNotifications,
         clearNotifications,
+
         theme,
         setTheme,
+
         notificationsEnabled,
-        setNotificationsEnabled
+        setNotificationsEnabled,
+
+        showAddMember,
+        setShowAddMember
       }}
     >
       {children}

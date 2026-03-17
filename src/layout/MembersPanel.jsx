@@ -7,7 +7,6 @@ import api from "../api/axios";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { startOfWeek, addDays, format } from "date-fns";
-import { useTaskContext } from "../context/TaskContext";
 import RoleBadge from "../components/common/RoleBadge";
 import { useSocketContext } from "../context/SocketContext";
 
@@ -19,24 +18,96 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 export default function MembersPanel() {
   const { id } = useParams();
   const location = useLocation();
-  const { user } = useAuthContext();
-  const { tasks } = useTaskContext();
+  const { user, authReady } = useAuthContext();
   const { socket, onlineUsers } = useSocketContext();
 
   const [members, setMembers] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [reminders, setReminders] = useState([]);
   const [expanded, setExpanded] = useState(false);
-  const [onlineUser, setOnlineUser] = useState([]);
   const [showOffline, setShowOffline] = useState(false);
 
+   const [chartData, setChartData] = useState({
+    completed: 0,
+    inProgress: 0,
+    pending: 0
+  });
+
+  const inChannel = location.pathname.startsWith("/channel/");
+
+  if (user?.role === "Admin") {
+  return null;
+}
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (inChannel) return;
+    if (!user) return;
+
+    const loadAnalytics = async () => {
+      try {
+        const res = await api.get("/analytics");
+
+        const data = res.data || {};
+
+        setChartData({
+          completed: data.completedTasks || 0,
+          inProgress: data.inProgressTasks || 0,
+          pending: data.pendingTasks || 0
+        });
+
+      } catch (err) {
+        console.error("Analytics load failed", err);
+      }
+    };
+
+    loadAnalytics();
+  }, [authReady, user, inChannel]);
+
+  /* ================= REALTIME ANALYTICS ================= */
+
+  useEffect(() => {
+  if (!socket || !authReady || inChannel) return;
+
+  const refreshAnalytics = async () => {
+
+    setTimeout(async () => {
+      try {
+        const res = await api.get("/analytics");
+
+        const data = res.data || {};
+
+        setChartData({
+          completed: data.completedTasks || 0,
+          inProgress: data.inProgressTasks || 0,
+          pending: data.pendingTasks || 0
+        });
+
+      } catch (err) {
+        console.error("Realtime analytics update failed");
+      }
+    }, 150);
+  };
+
+  socket.on("task:created", refreshAnalytics);
+  socket.on("task:moved", refreshAnalytics);
+  socket.on("task:deleted", refreshAnalytics);
+  socket.on("subtask:updated", refreshAnalytics);
+
+  return () => {
+    socket.off("task:created", refreshAnalytics);
+    socket.off("task:moved", refreshAnalytics);
+    socket.off("task:deleted", refreshAnalytics);
+    socket.off("subtask:updated", refreshAnalytics);
+  };
+
+}, [socket, inChannel]);
 
   const weekStart = startOfWeek(new Date());
   const weekDays = Array.from({ length: 7 }).map((_, i) =>
     addDays(weekStart, i)
   );
 
-  const inChannel = location.pathname.startsWith("/channel/");
   const formatDate = (d) => new Date(d).toDateString();
 
   /* ================= CHANNEL MEMBERS MODE ================= */
@@ -71,14 +142,6 @@ export default function MembersPanel() {
     if (aOnline === bOnline) return 0;
     return aOnline ? -1 : 1; // online first
   });
-
-  const onlineMembers = members.filter(m =>
-    onlineUsers.includes(m.user?._id)
-  );
-
-  const offlineMembers = members.filter(m =>
-    !onlineUsers.includes(m.user?._id)
-  );
 
 /* ================= MODE 1: CHANNEL ================= */
 if (inChannel) {
@@ -255,10 +318,6 @@ if (inChannel) {
 
   /* ================= MODE 2: USER DASHBOARD ================= */
 
-  const completed = tasks.filter((t) => t.status === "done").length;
-  const inProgress = tasks.filter((t) => t.status === "doing").length;
-  const pending = tasks.filter((t) => t.status === "todo").length;
-
   return (
     <div className="p-4 space-y-6">
 
@@ -274,7 +333,7 @@ if (inChannel) {
                 user?.avatar ||
                 `https://ui-avatars.com/api/?name=${user?.name}`
               }
-              className="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow"
+              className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow"
             />
 
             {/* 🟢 Online Pulse Indicator */}
@@ -322,13 +381,21 @@ if (inChannel) {
             labels: ["Completed", "In Progress", "Pending"],
             datasets: [
               {
-                data: [completed, inProgress, pending],
+                data: [
+                  chartData.completed,
+                  chartData.inProgress,
+                  chartData.pending
+                ],
                 backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
                 borderWidth: 0,
               },
             ],
           }}
           options={{
+            animation: {
+              duration: 700,
+              easing: "easeOutQuart"
+            },
             plugins: {
               legend: {
                 position: "bottom",
@@ -338,6 +405,14 @@ if (inChannel) {
             cutout: "70%",
           }}
         />
+
+        {chartData.completed === 0 &&
+        chartData.inProgress === 0 &&
+        chartData.pending === 0 && (
+          <p className="text-xs text-gray-400 text-center mt-3">
+            No tasks assigned yet
+          </p>
+        )}
       </div>
 
       {/* ================= CALENDAR ================= */}
