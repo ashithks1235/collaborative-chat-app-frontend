@@ -42,12 +42,14 @@ api.interceptors.response.use(
 
     // Auth expired
     if (status === 401) {
-      console.warn("🔒 Session expired. Logging out...");
+      if (!error.config.url.includes("/auth/login")) {
+        console.warn("🔒 Session expired. Logging out...");
 
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
 
-      window.location.href = "/login";
+        window.location.href = "/login";
+      }
     }
 
     // Rate limited

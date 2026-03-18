@@ -81,7 +81,26 @@ export default function Settings() {
 
     try {
 
-      await api.delete("/users/me");
+      const deleteAccount = async () => {
+        try {
+          // STEP 1: request OTP
+          await api.post("/users/request-delete");
+          toast.success("OTP sent to your email");
+
+          const otp = prompt("Enter OTP sent to your email:");
+
+          if (!otp) return;
+
+          // STEP 2: confirm delete
+          await api.post("/users/confirm-delete", { otp });
+
+          localStorage.clear();
+          window.location.href = "/login";
+
+        } catch (err) {
+          toast.error(err.response?.data?.message || "Delete failed");
+        }
+      };
 
       localStorage.removeItem("token");
 

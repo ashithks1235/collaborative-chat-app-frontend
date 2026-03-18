@@ -20,7 +20,7 @@ export const getMe = async () => {
    DELETE USER (SuperAdmin)
 =========================== */
 export const deleteUser = async (userId) => {
-  const { data } = await api.delete(`/users/${userId}`);
+  const { data } = await api.delete(`/admin/users/${userId}`);
   return data;
 };
 
@@ -28,7 +28,7 @@ export const deleteUser = async (userId) => {
    DEACTIVATE USER
 =========================== */
 export const deactivateUser = async (userId) => {
-  const { data } = await api.patch(`/users/${userId}/deactivate`);
+  const { data } = await api.put(`/admin/users/${userId}/deactivate`);
   return data;
 };
 
@@ -36,11 +36,11 @@ export const deactivateUser = async (userId) => {
    ACTIVATE USER
 =========================== */
 export const activateUser = async (userId) => {
-  const { data } = await api.patch(`/users/${userId}/activate`);
+  const { data } = await api.put(`/admin/users/${userId}/activate`);
   return data;
 };
 
 export const updateUserRole = async (userId, role) => {
-  const { data } = await api.patch(`/users/${userId}/role`, { role });
+  const { data } = await api.put(`/admin/users/${userId}/role`, { role });
   return data;
 };

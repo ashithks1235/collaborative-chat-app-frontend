@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
 import getErrorMessage from "../../utils/getErrorMessage";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 
 import { MdEmail } from "react-icons/md";
 import { FaLock, FaEye, FaEyeSlash, FaUser } from "react-icons/fa";
@@ -52,7 +53,9 @@ export default function Login() {
       setUser(data.user);
       navigate("/", { replace: true });
     } catch (err) {
-      setFormErrors({ general: getErrorMessage(err) });
+      const message = getErrorMessage(err);
+      toast.error(message);
+      setFormErrors({ general: message });
     } finally {
       setLoading(false);
     }
@@ -116,6 +119,7 @@ export default function Login() {
         <div className="relative">
           <input
             type={viewPassword ? "text" : "password"}
+            autoComplete="current-password" 
             placeholder="Password"
             className="w-full border p-2 rounded-3xl pl-10 pr-10 transition-all duration-200
            focus:ring-2 focus:ring-blue-400

@@ -19,7 +19,6 @@ import ThreadPanel from "../layout/ThreadPanel";
 import api from "../api/axios";
 import getErrorMessage from "../utils/getErrorMessage";
 
-/* HOOKS */
 import useChannelData from "../hooks/useChannelData";
 import useChannelProjects from "../hooks/useChannelProjects";
 import useChannelMessages from "../hooks/useChannelMessages";
@@ -185,11 +184,13 @@ export default function Channel() {
 
     if (!channel?.members) return [];
 
-    const members = channel.members.map(m =>
-      typeof m.user === "string"
-        ? { _id: m.user, name: m.name }
-        : m.user
-    );
+    const members = channel.members
+      .filter(m => m?.user)
+      .map(m =>
+        typeof m.user === "string"
+          ? { _id: m.user, name: m.name }
+          : m.user
+      );
 
     const currentUser = members.find(
       m => String(m._id) === String(user?._id)
