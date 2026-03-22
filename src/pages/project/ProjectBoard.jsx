@@ -29,7 +29,7 @@ export default function ProjectBoard() {
   const fetchBoard = async () => {
     try {
       const res = await api.get(`/projects/${projectId}/tasks`);
-      setColumns(res.data.data);
+      setColumns(res.data || []);
     } catch (err) {
       console.error("Failed to load board", err);
     }

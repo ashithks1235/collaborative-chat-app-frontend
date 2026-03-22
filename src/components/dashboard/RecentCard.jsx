@@ -20,7 +20,7 @@ export default function RecentCard({ title, items, type }) {
       <h3 className="font-semibold text-sm mb-3">{title}</h3>
 
       <div className="space-y-2">
-        {items.map((item) => (
+        {Array.isArray(items) && items.map((item) => (
           <div
             key={item.id}
             onClick={() => go(item)}

@@ -3,17 +3,46 @@ import axios from "axios";
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:3000/api",
   withCredentials: true,
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json"
   }
 });
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const normalizePayload = (payload) => {
+  if (Array.isArray(payload)) {
+    if (!Object.prototype.hasOwnProperty.call(payload, "data")) {
+      Object.defineProperty(payload, "data", {
+        value: payload,
+        enumerable: false
+      });
+    }
+    return payload;
+  }
+
+  if (payload && typeof payload === "object") {
+    if (!Object.prototype.hasOwnProperty.call(payload, "data")) {
+      return { ...payload, data: payload };
+    }
+    return payload;
+  }
+
+  return { data: payload };
+};
 
 /* ================= REQUEST INTERCEPTOR ================= */
 
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
+    config.headers = config.headers || {};
+
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+      delete config.headers["content-type"];
+    }
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -29,10 +58,23 @@ api.interceptors.request.use(
 /* ================= RESPONSE INTERCEPTOR ================= */
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return normalizePayload(response.data);
+  },
 
-  (error) => {
+  async (error) => {
+    const originalConfig = error.config || {};
     const status = error.response?.status;
+    const method = (originalConfig.method || "").toLowerCase();
+    const isIdempotent = ["get", "head", "options"].includes(method);
+
+    if ((error.code === "ECONNABORTED" || !error.response) && isIdempotent) {
+      if (!originalConfig.__retryAttempted) {
+        originalConfig.__retryAttempted = true;
+        await wait(800);
+        return api(originalConfig);
+      }
+    }
 
     // Network error
     if (!error.response) {
@@ -42,13 +84,20 @@ api.interceptors.response.use(
 
     // Auth expired
     if (status === 401) {
-      if (!error.config.url.includes("/auth/login")) {
+      const requestUrl = error.config?.url || "";
+      const isAuthRequest =
+        requestUrl.includes("/auth/login") ||
+        requestUrl.includes("/auth/register");
+
+      if (!isAuthRequest) {
         console.warn("🔒 Session expired. Logging out...");
 
         localStorage.removeItem("token");
         localStorage.removeItem("user");
 
-        window.location.href = "/login";
+        if (window.location.pathname !== "/login") {
+          window.location.assign("/login");
+        }
       }
     }
 

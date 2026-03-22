@@ -21,17 +21,20 @@ if (user?.role === "Admin") {
 }
 
 if (loading) return <Loader />;
-if (error) return <ErrorBox message={error} />;
+
+if (!data || !data.channels) {
+  return <ErrorBox message="Invalid dashboard data" />;
+}
 
 console.log("Dashboard data:", data);
 
-  const recentChats = data.channels.map(c => ({
+  const recentChats = (data?.channels || []).map(c => ({
     id: c._id,
     name: c.name,
     status: "active"
   }));
 
-  const recentTasks = data.tasks.map(t => ({
+  const recentTasks = (data?.tasks || []).map(t => ({
     id: t._id,
     name: t.title,
     status:
@@ -41,7 +44,7 @@ console.log("Dashboard data:", data);
     projectId: t.project
   }));
 
-  const recentProjects = data.projects.map(p => ({
+  const recentProjects = (data?.projects || []).map(p => ({
     id: p._id,
     name: p.name,
     status: "in progress"

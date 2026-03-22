@@ -1,8 +1,31 @@
 import { useAuthContext } from "../../context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
+import { MdAddTask, MdDelete, MdEdit } from "react-icons/md";
+import getFileUrl from "../../utils/getFileUrl";
+
+function HoverIconButton({ label, className, onClick, children }) {
+  return (
+    <div className="group/icon relative flex">
+      <div className="pointer-events-none absolute -top-11 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center opacity-0 transition duration-150 group-hover/icon:-translate-y-1 group-hover/icon:opacity-100">
+        <span className="whitespace-nowrap rounded-lg bg-gray-900 px-2.5 py-1.5 text-[10px] font-semibold tracking-wide text-white shadow-lg ring-1 ring-black/10 dark:bg-gray-700 dark:ring-white/10">
+          {label}
+        </span>
+        <span className="h-2 w-2 -translate-y-1 rotate-45 bg-gray-900 shadow-sm dark:bg-gray-700" />
+      </div>
+      <button
+        onClick={onClick}
+        className={className}
+        aria-label={label}
+        type="button"
+      >
+        {children}
+      </button>
+    </div>
+  );
+}
 
 export default function ThreadMessageList({
   replies,
@@ -68,7 +91,7 @@ const deleteReply = async (messageId) => {
                 {!isSender && (
                   <img
                     src={
-                      reply.sender?.avatar ||
+                      getFileUrl(reply.sender?.avatar) ||
                       `https://ui-avatars.com/api/?name=${reply.sender?.name}`
                     }
                     className="w-7 h-7 rounded-full mt-1"
@@ -100,47 +123,46 @@ const deleteReply = async (messageId) => {
 
                     {!reply.isDeleted && (
                       <div
-                        className="absolute -top-7 right-10
-                        opacity-0 group-hover:opacity-100
-                        transition-all duration-200
-                        flex items-center gap-2
-                        bg-white dark:bg-gray-800 shadow-lg
-                        border rounded-lg px-2 py-1 text-xs z-20"
+                        className={`absolute -top-7 ${
+                          isSender ? "right-10" : "left-10"
+                        } opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-200
+                        flex items-center gap-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 shadow-lg border
+                        rounded-lg px-2 py-1 text-xs z-20`}
                       >
 
-                        {/* Convert */}
                         {isChannelAdmin && !reply.convertedToTask && (
-                          <button
+                          <HoverIconButton
+                            label="Convert to task"
                             onClick={() => onConvert?.(reply)}
-                            className="hover:text-blue-600 transition"
+                            className="text-green-600 transition hover:text-green-500"
                           >
-                            💡
-                          </button>
+                            <MdAddTask size={14} />
+                          </HoverIconButton>
                         )}
 
-                        {/* Edit */}
                         {reply.sender?._id === user?._id && (
-                          <button
+                          <HoverIconButton
+                            label="Edit reply"
                             onClick={() =>
                               setEditingReply({
                                 id: reply._id,
                                 text: reply.text
                               })
                             }
-                            className="hover:text-green-600 transition"
+                            className="text-yellow-600 transition hover:text-yellow-500"
                           >
-                            ✏️
-                          </button>
+                            <MdEdit size={14} />
+                          </HoverIconButton>
                         )}
 
-                        {/* Delete */}
                         {reply.sender?._id === user?._id && (
-                          <button
+                          <HoverIconButton
+                            label="Delete reply"
                             onClick={() => deleteReply(reply._id)}
-                            className="hover:text-red-600 transition"
+                            className="text-red-700 transition hover:text-red-600"
                           >
-                            🗑
-                          </button>
+                            <MdDelete size={14} />
+                          </HoverIconButton>
                         )}
 
                       </div>
@@ -163,7 +185,7 @@ const deleteReply = async (messageId) => {
                 {isSender && (
                   <img
                     src={
-                      reply.sender?.avatar ||
+                      getFileUrl(reply.sender?.avatar) ||
                       `https://ui-avatars.com/api/?name=${reply.sender?.name}`
                     }
                     className="w-7 h-7 rounded-full mt-1"

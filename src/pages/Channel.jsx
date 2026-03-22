@@ -33,7 +33,7 @@ export default function Channel() {
   const trigger = searchParams.get("t");
 
   const { socket } = useSocketContext();
-  const { channels } = useChannelContext();
+  const { channels = [] } = useChannelContext();
   const { user } = useAuthContext();
   const { showToast } = useToast();
   const { showAddMember, setShowAddMember } = useUI();
@@ -59,7 +59,7 @@ export default function Channel() {
 
   /* ================= SOCKET HOOK ================= */
 
-  useChannelSocket(socket, id, setMessages);
+  useChannelSocket(socket, id, setMessages, user?._id || user?.id);
 
   /* ================= UI STATE ================= */
 
@@ -110,7 +110,7 @@ export default function Channel() {
 
       setMessages(prev =>
         prev.map(m =>
-          m._id === messageId ? res.data.data : m
+          m._id === messageId ? (res.data || res) : m
         )
       );
 
@@ -126,9 +126,7 @@ export default function Channel() {
 
       setMessages(prev =>
         prev.map(m =>
-          m._id === messageId
-            ? res.data
-            : { ...m, pinned: false }
+          m._id === messageId ? (res.data || res) : { ...m, pinned: false }
         )
       );
 
@@ -139,6 +137,22 @@ export default function Channel() {
 
   const handleReply = (message) => {
     setReplyMessage(message);
+  };
+
+  const handleOpenThread = (message) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m._id === message._id
+          ? { ...m, unreadThreadCount: 0, hasUnreadThread: false }
+          : m
+      )
+    );
+
+    setActiveThread({
+      ...message,
+      unreadThreadCount: 0,
+      hasUnreadThread: false
+    });
   };
 
   const handleConvertSuccess = (task) => {
@@ -169,7 +183,9 @@ export default function Channel() {
 
   const isChannelAdmin = useMemo(() => {
 
-    return channel?.members?.some(m =>
+    if (!channel || !Array.isArray(channel.members)) return false;
+
+    return channel.members.some(m =>
       (typeof m.user === "string"
         ? m.user === user?._id
         : m.user?._id === user?._id) &&
@@ -182,7 +198,7 @@ export default function Channel() {
 
   const cleanMembers = useMemo(() => {
 
-    if (!channel?.members) return [];
+    if (!channel || !Array.isArray(channel.members)) return [];
 
     const members = channel.members
       .filter(m => m?.user)
@@ -207,7 +223,10 @@ export default function Channel() {
   /* ================= LOADING ================= */
 
   if (loadingChannel) return <Loader />;
-  if (!channel) return <div className="p-6">Channel not found</div>;
+
+  if (!channel || !Array.isArray(channel.members)) {
+    return <div className="p-6">Channel not ready</div>;
+  }
 
   /* ================= UI ================= */
 
@@ -230,7 +249,7 @@ export default function Channel() {
         onPin={handlePin}
         recentlyConvertedId={recentlyConvertedId}
         onEdit={(msg) => setEditingMessage(msg)}
-        onOpenThread={(msg) => setActiveThread(msg)}
+        onOpenThread={handleOpenThread}
         onJumpToMessage={(id) => {
           setJumpHighlight(null);
 

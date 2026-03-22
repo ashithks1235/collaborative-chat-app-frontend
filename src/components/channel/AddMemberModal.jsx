@@ -3,6 +3,7 @@ import api from "../../api/axios";
 import toast from "react-hot-toast";
 import { FiX, FiUserPlus } from "react-icons/fi";
 import { useAuthContext } from "../../context/AuthContext";
+import getFileUrl from "../../utils/getFileUrl";
 
 export default function AddMemberModal({
   channelId,
@@ -23,7 +24,7 @@ export default function AddMemberModal({
     const fetchUsers = async () => {
       try {
         const res = await api.get("/users");
-        setUsers(res.data);
+        setUsers(res);
       } catch {
         toast.error("Failed to load users");
       }
@@ -77,19 +78,29 @@ export default function AddMemberModal({
   =========================== */
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
 
-      <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-xl shadow-xl p-6 relative">
+      <div
+        className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900"
+        onClick={(e) => e.stopPropagation()}
+      >
 
-        {/* CLOSE */}
         <FiX
           onClick={onClose}
-          className="absolute top-4 right-4 cursor-pointer text-gray-400 hover:text-gray-600"
+          className="absolute right-4 top-4 cursor-pointer text-gray-400 transition hover:text-gray-600"
         />
 
-        <h2 className="text-lg font-semibold mb-4">
-          Add Member
-        </h2>
+        <div className="mb-5 space-y-1">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Add Member
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Invite people into the channel and keep collaboration moving.
+          </p>
+        </div>
 
         {/* SEARCH */}
         <input
@@ -97,7 +108,7 @@ export default function AddMemberModal({
           placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full mb-4 px-3 py-2 border rounded-lg text-sm
+          className="mb-4 w-full rounded-lg border px-3 py-2 text-sm
           focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
@@ -113,7 +124,7 @@ export default function AddMemberModal({
           {filteredUsers.map((u) => (
             <div
               key={u._id}
-              className="flex items-center justify-between p-3 rounded-lg border
+              className="flex items-center justify-between rounded-xl border p-3
               hover:bg-gray-50 dark:hover:bg-gray-700 transition"
             >
 
@@ -122,8 +133,8 @@ export default function AddMemberModal({
 
                 <img
                   src={
-                    u.avatar ||
-                    `https://ui-avatars.com/api/?name=${u.name}`
+                    getFileUrl(u.avatar) ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "User")}`
                   }
                   className="w-8 h-8 rounded-full object-cover"
                   alt="avatar"
@@ -145,7 +156,7 @@ export default function AddMemberModal({
               <button
                 disabled={loadingUserId === u._id}
                 onClick={() => addMember(u._id)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs
+                className="flex items-center gap-1 rounded-lg bg-blue-500 px-3 py-2 text-xs font-medium
                 bg-blue-500 text-white hover:bg-blue-600
                 disabled:opacity-50 transition"
               >

@@ -1,7 +1,7 @@
 import api from "./axios";
 
 export const sendThreadReply = (data) =>
-  api.post("/threads", data);
+  api.post(`/messages/${data.parentId}/reply`, { text: data.text });
 
 export const getThreadReplies = (messageId) =>
-  api.get(`/threads/${messageId}`);
+  api.get(`/messages/${messageId}/replies`);

@@ -18,7 +18,7 @@ export default function AdminChannels() {
     error,
     refetch,
   } = useFetch(() =>
-    api.get("/admin/channels").then((res) => res.data),
+    api.get("/admin/channels"),
     []
   );
 

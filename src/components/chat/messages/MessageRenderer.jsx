@@ -1,5 +1,6 @@
 import TextMessage from "./TextMessage";
 import FileMessage from "./FileMessage";
+import getFileUrl from "../../../utils/getFileUrl";
 
 export default function MessageRenderer({
   m,
@@ -25,10 +26,18 @@ export default function MessageRenderer({
     m.attachments &&
     m.attachments.length > 0;
 
+  const normalizedMessage = {
+    ...m,
+    attachments: m.attachments?.map((file) => ({
+      ...file,
+      url: getFileUrl(file.url)
+    }))
+  };
+
   if (isFileOnly) {
     return (
       <FileMessage
-        m={m}
+        m={normalizedMessage}
         isSender={isSender}
         readOnly={readOnly}
         onReact={onReact}
@@ -40,7 +49,7 @@ export default function MessageRenderer({
 
   return (
     <TextMessage
-      m={m}
+      m={normalizedMessage}
       isSender={isSender}
       isChannelAdmin={isChannelAdmin}
       canConvert={canConvert}

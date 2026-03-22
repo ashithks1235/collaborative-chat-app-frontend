@@ -9,7 +9,7 @@ export default function ConvertToTaskModal({
   onClose,
   message,
   channelMembers = [],
-  projects = [],              // ✅ NEW: channel projects
+  projects = [],
   onSuccess,
 }) {
   const { showToast } = useToast();
@@ -66,8 +66,8 @@ export default function ConvertToTaskModal({
       const res = await api.post(
         `/messages/${message._id}/convert-to-task`,
         {
-          projectId,                    // ✅ REQUIRED
-          assignees: [assignee],        // ✅ backend expects array
+          projectId,                   
+          assignees: [assignee],        
           dueDate: dueDate || null,
           priority,
         }
@@ -75,7 +75,7 @@ export default function ConvertToTaskModal({
 
       showToast("Task created successfully");
 
-      onSuccess?.(res.data.data);
+      onSuccess?.(res.data || res);
       onClose();
 
     } catch (err) {

@@ -20,6 +20,9 @@ export default function TextMessage({
   onJumpToMessage
 }) {
 
+const senderObj =
+  typeof m.sender === "object" ? m.sender : null;
+
   const isRecentlyConverted = recentlyConvertedId === m._id;
 
   return (
@@ -58,7 +61,7 @@ export default function TextMessage({
 
         {!isSender && (
             <div className="mb-1 font-semibold text-sm">
-            {m.sender?.name}
+            {senderObj?.name || "User"}
             </div>
         )}
 

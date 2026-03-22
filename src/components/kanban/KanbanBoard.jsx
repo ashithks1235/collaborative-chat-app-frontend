@@ -14,6 +14,7 @@ import TaskDetailModal from "./TaskDetailModal";
 import TaskEditDrawer from "./TaskEditDrawer";
 import { useTaskContext } from "../../context/TaskContext";
 import api from "../../api/axios";
+import getFileUrl from "../../utils/getFileUrl";
 
 export default function KanbanBoard({ projectId, search = "", groupBy = "status" , refetchTasks}) {
   const { socket } = useSocketContext();
@@ -58,9 +59,27 @@ export default function KanbanBoard({ projectId, search = "", groupBy = "status"
     const fetchMembers = async () => {
       try {
         const res = await api.get(`/projects/${projectId}`);
-        setMembers(res.data?.data?.project?.members || []);
+        const payload = res?.data ?? res;
+        const project = payload?.project || payload?.data?.project || null;
+        const channelId = project?.channel?._id || project?.channel;
+
+        if (!channelId) {
+          setMembers([]);
+          return;
+        }
+
+        const channelRes = await api.get(`/channels/${channelId}`);
+        const channelPayload = channelRes?.data ?? channelRes;
+        const channelMembers = Array.isArray(channelPayload?.members)
+          ? channelPayload.members
+              .map((member) => member?.user || member)
+              .filter((member) => member?._id)
+          : [];
+
+        setMembers(channelMembers);
       } catch (err) {
-        console.error("Failed to load project members");
+        console.error("Failed to load channel members for task creation");
+        setMembers([]);
       }
     };
 
@@ -211,6 +230,25 @@ export default function KanbanBoard({ projectId, search = "", groupBy = "status"
       });
     };
 
+    const handleUpdated = (task) => {
+      setColumns((prev) =>
+        prev.map((col) => ({
+          ...col,
+          tasks: col.tasks.map((currentTask) =>
+            currentTask._id === task._id
+              ? { ...currentTask, ...task }
+              : currentTask
+          )
+        }))
+      );
+
+      setSelectedTask((prev) =>
+        prev && prev._id === task._id
+          ? { ...prev, ...task }
+          : prev
+      );
+    };
+
     /* ===== TASK DELETED ===== */
 
     const handleDeleted = (taskId) => {
@@ -293,6 +331,7 @@ export default function KanbanBoard({ projectId, search = "", groupBy = "status"
 
     socket.on("task:created", handleCreated);
     socket.on("task:moved", handleMoved);
+    socket.on("task:updated", handleUpdated);
     socket.on("task:deleted", handleDeleted);
     socket.on("taskCommentAdded", handleCommentAdded);
     socket.on("subtask:created", handleSubtaskCreated);
@@ -301,6 +340,7 @@ export default function KanbanBoard({ projectId, search = "", groupBy = "status"
     return () => {
       socket.off("task:created", handleCreated);
       socket.off("task:moved", handleMoved);
+      socket.off("task:updated", handleUpdated);
       socket.off("task:deleted", handleDeleted);
       socket.off("taskCommentAdded", handleCommentAdded);
       socket.off("subtask:created", handleSubtaskCreated);
@@ -447,11 +487,13 @@ export default function KanbanBoard({ projectId, search = "", groupBy = "status"
                   <div className="flex items-center gap-2 mt-3">
                     <img
                       src={
-                        activeTask.assignees[0]?.avatar ||
-                        `https://ui-avatars.com/api/?name=${activeTask.assignees[0]?.name}`
+                        getFileUrl(activeTask.assignees[0]?.avatar) ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          activeTask.assignees[0]?.name || "User"
+                        )}`
                       }
                       alt="assignee"
-                      className="w-6 h-6 rounded-full"
+                      className="w-6 h-6 rounded-full object-cover"
                     />
                     <span className="text-xs text-gray-600 dark:text-gray-300">
                       {activeTask.assignees[0]?.name}
@@ -488,6 +530,7 @@ export default function KanbanBoard({ projectId, search = "", groupBy = "status"
                 )
               }))
             );
+            setSelectedTask(updatedTask);
           }}
         />
       )}

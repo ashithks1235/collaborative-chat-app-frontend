@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import ThreadMessageList from "../components/thread/ThreadMessageList";
 import ThreadInput from "../components/thread/ThreadInput";
 import ConvertToTaskModal from "../components/chat/ConvertToTaskModal";
+import getFileUrl from "../utils/getFileUrl";
 
 export default function ThreadPanel({ message, onClose, isChannelAdmin, channelMembers, projects }) {
   const { socket } = useSocketContext();
@@ -28,7 +29,8 @@ export default function ThreadPanel({ message, onClose, isChannelAdmin, channelM
     const loadReplies = async () => {
       try {
         const res = await api.get(`/messages/${message._id}/replies`);
-        const fetched = res.data?.data?.replies || [];
+        const payload = res?.data || res;
+        const fetched = Array.isArray(payload?.replies) ? payload.replies : [];
 
         setReplies(fetched);
 
@@ -158,7 +160,7 @@ export default function ThreadPanel({ message, onClose, isChannelAdmin, channelM
           {/* Avatar */}
           <img
             src={
-              message.sender?.avatar ||
+              getFileUrl(message.sender?.avatar) ||
               `https://ui-avatars.com/api/?name=${message.sender?.name}`
             }
             className="w-9 h-9 rounded-full object-cover mt-1"
@@ -187,9 +189,7 @@ export default function ThreadPanel({ message, onClose, isChannelAdmin, channelM
               {message.attachments?.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2">
                   {message.attachments.map(file => {
-                    const fileUrl = file.url?.startsWith("http")
-                      ? file.url
-                      : `http://localhost:3000${file.url}`;
+                    const fileUrl = getFileUrl(file.url);
                     const isImage = file.type?.startsWith("image");
                     if (isImage) {
                       return (

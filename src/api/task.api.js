@@ -4,10 +4,8 @@ import api from "./axios";
    GET PROJECT BOARD (KANBAN)
 =============================== */
 export const getProjectBoard = async (projectId) => {
-  if (!projectId) return [];
-
   const res = await api.get(`/projects/${projectId}/tasks`);
-  return res.data?.data || [];
+  return res.data ?? res ?? [];
 };
 
 /* ===============================
@@ -15,7 +13,7 @@ export const getProjectBoard = async (projectId) => {
 =============================== */
 export const createTask = async (projectId, payload) => {
   const res = await api.post(`/projects/${projectId}/tasks`, payload);
-  return res.data?.data;
+  return res;
 };
 
 /* ===============================
@@ -26,7 +24,7 @@ export const moveTask = async (taskId, targetColumnId, newOrder) => {
     targetColumnId,
     newOrder
   });
-  return res.data?.data;
+  return res;
 };
 
 /* ===============================
@@ -34,7 +32,7 @@ export const moveTask = async (taskId, targetColumnId, newOrder) => {
 =============================== */
 export const updateTask = async (taskId, payload) => {
   const res = await api.put(`/tasks/${taskId}`, payload);
-  return res.data?.data;
+  return res;
 };
 
 /* ===============================
@@ -42,5 +40,5 @@ export const updateTask = async (taskId, payload) => {
 =============================== */
 export const convertMessageToTask = async (messageId) => {
   const res = await api.post(`/messages/${messageId}/convert-to-task`);
-  return res.data?.data;
+  return res;
 };

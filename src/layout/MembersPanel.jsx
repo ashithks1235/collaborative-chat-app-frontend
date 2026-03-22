@@ -9,6 +9,7 @@ import "react-calendar/dist/Calendar.css";
 import { startOfWeek, addDays, format } from "date-fns";
 import RoleBadge from "../components/common/RoleBadge";
 import { useSocketContext } from "../context/SocketContext";
+import getFileUrl from "../utils/getFileUrl";
 
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
@@ -27,11 +28,12 @@ export default function MembersPanel() {
   const [expanded, setExpanded] = useState(false);
   const [showOffline, setShowOffline] = useState(false);
 
-   const [chartData, setChartData] = useState({
+  const [chartData, setChartData] = useState({
     completed: 0,
     inProgress: 0,
     pending: 0
   });
+  const validMembers = members.filter((member) => member?.user?._id);
 
   const inChannel = location.pathname.startsWith("/channel/");
 
@@ -115,7 +117,10 @@ export default function MembersPanel() {
     if (!inChannel || !id) return;
 
     getChannelById(id).then((data) => {
-      setMembers(Array.isArray(data.members) ? data.members : []);
+      const safeMembers = Array.isArray(data.members)
+        ? data.members.filter((member) => member?.user?._id)
+        : [];
+      setMembers(safeMembers);
     });
   }, [id, inChannel]);
 
@@ -135,7 +140,7 @@ export default function MembersPanel() {
     loadDashboard();
   }, [inChannel]);
 
-  const sortedMembers = [...members].sort((a, b) => {
+  const sortedMembers = [...validMembers].sort((a, b) => {
     const aOnline = onlineUsers.includes(a.user?._id);
     const bOnline = onlineUsers.includes(b.user?._id);
 
@@ -147,7 +152,7 @@ export default function MembersPanel() {
 if (inChannel) {
 
   /* ---------- SORT MEMBERS ---------- */
-  const sortedMembers = [...members].sort((a, b) => {
+  const sortedMembers = [...validMembers].sort((a, b) => {
     const aUser = a.user;
     const bUser = b.user;
 
@@ -172,11 +177,11 @@ if (inChannel) {
     return 0;
   });
 
-  const onlineCount = members.filter(m =>
+  const onlineCount = validMembers.filter(m =>
     onlineUsers.includes(m.user?._id)
   ).length;
 
-  const offlineCount = members.length - onlineCount;
+  const offlineCount = validMembers.length - onlineCount;
 
   return (
     <div className="h-full overflow-y-auto p-4 bg-white dark:bg-gray-900 transition-colors">
@@ -184,7 +189,7 @@ if (inChannel) {
       <h3 className="font-bold mb-4 flex items-center justify-between text-gray-800 dark:text-gray-100">
         Channel Members
         <span className="text-xs text-gray-400">
-          {members.length} members
+          {validMembers.length} members
         </span>
       </h3>
 
@@ -207,13 +212,13 @@ if (inChannel) {
                   isCurrentUser ? "bg-blue-50 dark:bg-blue-900/20" : ""
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
 
                   {/* Avatar + Online Dot */}
                   <div className="relative">
                     <img
                       src={
-                        u?.avatar ||
+                        getFileUrl(u?.avatar) ||
                         `https://ui-avatars.com/api/?name=${u?.name}`
                       }
                       className="w-8 h-8 rounded-full object-cover"
@@ -221,7 +226,7 @@ if (inChannel) {
                     <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-900" />
                   </div>
 
-                  <div className="flex flex-col">
+                  <div className="min-w-0 flex flex-col">
                     <span className="font-medium text-gray-800 dark:text-gray-100">
                       {u?.name}
                       {isCurrentUser && (
@@ -237,7 +242,9 @@ if (inChannel) {
                 </div>
 
                 {/* ✅ Channel Role Only */}
-                <RoleBadge role={memberObj.role} />
+                <div className="ml-3 shrink-0">
+                  <RoleBadge role={memberObj.role} />
+                </div>
               </div>
             );
           })}
@@ -277,13 +284,13 @@ if (inChannel) {
                     isCurrentUser ? "bg-blue-50 dark:bg-blue-900/20" : ""
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
 
                     {/* Avatar + Offline Dot */}
                     <div className="relative">
                       <img
                         src={
-                          u?.avatar ||
+                          getFileUrl(u?.avatar) ||
                           `https://ui-avatars.com/api/?name=${u?.name}`
                         }
                         className="w-8 h-8 rounded-full object-cover"
@@ -291,7 +298,7 @@ if (inChannel) {
                       <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-gray-400 border-2 border-white dark:border-gray-900" />
                     </div>
 
-                    <div className="flex flex-col">
+                    <div className="min-w-0 flex flex-col">
                       <span className="font-medium text-gray-800 dark:text-gray-100">
                         {u?.name}
                         {isCurrentUser && (
@@ -306,7 +313,9 @@ if (inChannel) {
                     </div>
                   </div>
 
-                  <RoleBadge role={memberObj.role} />
+                  <div className="ml-3 shrink-0">
+                    <RoleBadge role={memberObj.role} />
+                  </div>
                 </div>
               );
             })}
@@ -330,7 +339,7 @@ if (inChannel) {
           <div className="relative">
             <img
               src={
-                user?.avatar ||
+                getFileUrl(user?.avatar) ||
                 `https://ui-avatars.com/api/?name=${user?.name}`
               }
               className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow"

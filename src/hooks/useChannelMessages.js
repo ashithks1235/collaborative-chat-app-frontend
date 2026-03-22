@@ -1,47 +1,69 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import api from "../api/axios";
 
 export default function useChannelMessages(channelId, showToast) {
-
   const [messages, setMessages] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  const loadMessages = useCallback(async (page = 1) => {
+  const cache = useRef({});
 
-    if (!channelId) return;
+  useEffect(() => {
+    setMessages([]);
+    setPagination(null);
+  }, [channelId]);
 
-    try {
+  const loadMessages = useCallback(
+    async (page = 1) => {
+      if (!channelId) return;
 
-      setLoadingMessages(true);
+      try {
+        setLoadingMessages(true);
 
-      const res = await api.get(`/messages/${channelId}`, {
-        params: { page, limit: 30 }
-      });
+        if (page === 1 && cache.current[channelId]) {
+          setMessages(cache.current[channelId].messages);
+          setPagination(cache.current[channelId].pagination);
+          setLoadingMessages(false);
+          return;
+        }
 
-      const { messages: newMessages, pagination } = res.data.data;
+        const res = await api.get(`/messages/${channelId}`, {
+          params: { page, limit: 30 },
+        });
 
-      if (page === 1) {
-        setMessages(newMessages);
-      } else {
-        setMessages(prev => [...newMessages, ...prev]);
+        const payload = res?.data || res;
+
+        const newMessages = payload?.messages || [];
+        const pagination = payload?.pagination || null;
+
+        if (page === 1) {
+          cache.current[channelId] = {
+            messages: newMessages,
+            pagination,
+          };
+        }
+
+        if (page === 1) {
+          setMessages(newMessages);
+        } else {
+          setMessages((prev) => [...newMessages, ...prev]);
+        }
+
+        setPagination(pagination);
+      } catch (err) {
+        showToast("Failed to load messages");
+      } finally {
+        setLoadingMessages(false);
       }
-
-      setPagination(pagination);
-
-    } catch {
-      showToast("Failed to load messages");
-    } finally {
-      setLoadingMessages(false);
-    }
-
-  }, [channelId, showToast]);
+    },
+    [channelId, showToast]
+  );
 
   return {
     messages,
     setMessages,
     pagination,
     loadingMessages,
-    loadMessages
+    loadMessages,
   };
 }

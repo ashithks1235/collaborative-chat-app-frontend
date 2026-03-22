@@ -56,7 +56,7 @@ export default function ChatInput({
           { text }
         );
 
-        const updated = res.data.data;
+        const updated = res.data || res;
 
         setMessages((prev) =>
           prev.map((m) =>
@@ -115,7 +115,7 @@ export default function ChatInput({
         headers: { "Content-Type": "multipart/form-data" }
       });
 
-      const realMessage = res.data.data;
+      const realMessage = res.data || res;
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -129,6 +129,12 @@ export default function ChatInput({
       setFile(null);
       setReplyMessage(null);
       setError(null);
+      requestAnimationFrame(() => {
+        document.getElementById(`message-${realMessage._id}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest"
+        });
+      });
 
     } catch {
       setMessages((prev) =>

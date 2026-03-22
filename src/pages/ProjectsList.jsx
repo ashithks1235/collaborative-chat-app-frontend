@@ -20,7 +20,7 @@ export default function ProjectsList() {
         const res = await api.get("/projects");
 
         // ✅ Correct backend structure handling
-        const projectData = res.data?.data || [];
+        const projectData = res.data || res || [];
         setProjects(projectData);
 
       } catch (err) {

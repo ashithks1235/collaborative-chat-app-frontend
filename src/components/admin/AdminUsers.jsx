@@ -3,6 +3,7 @@ import Loader from "../ui/Loader";
 import ErrorBox from "../ui/ErrorBox";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import getFileUrl from "../../utils/getFileUrl";
 
 import {
   getAllUsers,
@@ -123,10 +124,10 @@ export default function AdminUsers() {
 
               <img
                 src={
-                  u.avatar ||
-                  `https://ui-avatars.com/api/?name=${u.name}`
+                  getFileUrl(u.avatar) ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "User")}`
                 }
-                className="w-10 h-10 rounded-full"
+                className="w-10 h-10 rounded-full object-cover"
               />
 
               <div>

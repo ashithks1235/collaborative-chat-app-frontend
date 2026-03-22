@@ -1,8 +1,12 @@
 import { useUI } from "../../context/UIContext";
 import { motion } from "framer-motion";
+import getFileUrl from "../../utils/getFileUrl";
 
 export default function MessageItem({ message }) {
   const { openThread } = useUI();
+
+  const senderObj =
+  typeof message.sender === "object" ? message.sender : null;
 
   /* ===========================
      SAFE MENTION HIGHLIGHT
@@ -37,7 +41,7 @@ export default function MessageItem({ message }) {
     >
       {/* Sender */}
       <p className="font-semibold text-gray-800 dark:text-gray-100">
-        {message.sender?.name || "Unknown"}
+        {senderObj?.name || "User"}
       </p>
 
       {/* Message Text */}
@@ -51,9 +55,7 @@ export default function MessageItem({ message }) {
       {message.attachments?.length > 0 && (
         <div className="mt-2 flex flex-col gap-2">
           {message.attachments.map((file, index) => {
-            const fileUrl = file.url.startsWith("http")
-              ? file.url
-              : `http://localhost:3000${file.url}`;
+            const fileUrl = getFileUrl(file.url);
 
             const isImage = file.type?.startsWith("image");
 

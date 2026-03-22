@@ -1,5 +1,5 @@
 import useFetch from "../../hooks/useFetch";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchAdminOverview } from "../../services/admin.service";
 import Loader from "../ui/Loader";
 import ErrorBox from "../ui/ErrorBox";
@@ -36,8 +36,9 @@ export default function AdminDashboard() {
 
   const { data, loading, error, refetch } = useFetch(fetchAdminOverview, []);
   const { socket } = useSocketContext();
+  const safeData = data || {};
 
-  const [liveUsers, setLiveUsers] = useState(data?.liveUsers || 0);
+  const [liveUsers, setLiveUsers] = useState(safeData.liveUsers || 0);
   const [liveEvents, setLiveEvents] = useState([]);
 
   /* ===============================
@@ -89,16 +90,13 @@ export default function AdminDashboard() {
   return map[type] || <FiActivity className="text-gray-400" />;
 };
 
-  if (loading) return <Loader />;
-  if (error) return <ErrorBox message={error} />;
-
   const analyticsData = {
     labels: ["Completed Tasks", "Pending Tasks"],
     datasets: [
       {
         data: [
-          data.completedTasks || 0,
-          (data.totalTasks || 0) - (data.completedTasks || 0)
+          safeData.completedTasks || 0,
+          (safeData.totalTasks || 0) - (safeData.completedTasks || 0)
         ],
         backgroundColor: ["#22c55e", "#facc15"],
         borderWidth: 0
@@ -106,29 +104,60 @@ export default function AdminDashboard() {
     ]
   };
 
-  const weeklyData = data.weeklyAnalytics || { messages: [], tasks: [] };
+  const weeklyData = safeData.weeklyAnalytics || { messages: [], tasks: [] };
 
-  const labels = weeklyData.messages.map(m =>
-    new Date(m._id).toLocaleDateString("en-US", { weekday: "short" })
-  );
+  const weeklyChartData = useMemo(() => {
+    const dayMap = new Map();
 
-  const weeklyChartData = {
-    labels,
-    datasets: [
-      {
-        label: "Messages",
-        data: weeklyData.messages.map(m => m.count),
-        borderColor: "#3b82f6",
-        tension: 0.4
-      },
-      {
-        label: "Tasks",
-        data: weeklyData.tasks.map(t => t.count),
-        borderColor: "#22c55e",
-        tension: 0.4
+    for (let i = 6; i >= 0; i -= 1) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const key = date.toISOString().slice(0, 10);
+
+      dayMap.set(key, {
+        label: date.toLocaleDateString("en-US", { weekday: "short" }),
+        messages: 0,
+        tasks: 0
+      });
+    }
+
+    weeklyData.messages.forEach((item) => {
+      if (dayMap.has(item._id)) {
+        dayMap.get(item._id).messages = item.count || 0;
       }
-    ]
-  };
+    });
+
+    weeklyData.tasks.forEach((item) => {
+      if (dayMap.has(item._id)) {
+        dayMap.get(item._id).tasks = item.count || 0;
+      }
+    });
+
+    const points = Array.from(dayMap.values());
+
+    return {
+      labels: points.map((point) => point.label),
+      datasets: [
+        {
+          label: "Messages",
+          data: points.map((point) => point.messages),
+          borderColor: "#3b82f6",
+          backgroundColor: "rgba(59, 130, 246, 0.15)",
+          tension: 0.4
+        },
+        {
+          label: "Tasks",
+          data: points.map((point) => point.tasks),
+          borderColor: "#22c55e",
+          backgroundColor: "rgba(34, 197, 94, 0.15)",
+          tension: 0.4
+        }
+      ]
+    };
+  }, [weeklyData.messages, weeklyData.tasks]);
+
+  if (loading) return <Loader />;
+  if (error) return <ErrorBox message={error} />;
 
   return (
 
@@ -143,10 +172,10 @@ export default function AdminDashboard() {
       {/* SYSTEM STATS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
-        <Stat label="Users" value={data.totalUsers} color="blue" />
-        <Stat label="Channels" value={data.totalChannels} color="green" />
-        <Stat label="Tasks" value={data.totalTasks} color="yellow" />
-        <Stat label="Messages" value={data.totalMessages} color="purple" />
+        <Stat label="Users" value={safeData.totalUsers} color="blue" />
+        <Stat label="Channels" value={safeData.totalChannels} color="green" />
+        <Stat label="Tasks" value={safeData.totalTasks} color="yellow" />
+        <Stat label="Messages" value={safeData.totalMessages} color="purple" />
 
       </div>
 
@@ -210,25 +239,25 @@ export default function AdminDashboard() {
 
             <HealthRow
               label="Live Users"
-              value={liveUsers || data.liveUsers || 0}
+              value={liveUsers || safeData.liveUsers || 0}
               color="green"
             />
 
             <HealthRow
               label="Messages Today"
-              value={data.messagesToday || 0}
+              value={safeData.messagesToday || 0}
               color="blue"
             />
 
             <HealthRow
               label="Tasks Created Today"
-              value={data.tasksToday || 0}
+              value={safeData.tasksToday || 0}
               color="yellow"
             />
 
             <HealthRow
               label="System Status"
-              value={data.systemStatus || "Healthy"}
+              value={safeData.systemStatus || "Healthy"}
               color="green"
             />
 

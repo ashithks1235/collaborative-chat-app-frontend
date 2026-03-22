@@ -11,11 +11,11 @@ export const sendMessage = async (payload) => {
 };
 
 export const pinMessage = async (messageId) => {
-  const { data } = await api.patch(`/messages/${messageId}/pin`);
+  const { data } = await api.put(`/messages/${messageId}/pin`);
   return data;
 };
 
 export const convertMessageToTask = async (messageId, payload) => {
-  const { data } = await api.post(`/messages/${messageId}/task`, payload);
+  const { data } = await api.post(`/messages/${messageId}/convert-to-task`, payload);
   return data;
 };

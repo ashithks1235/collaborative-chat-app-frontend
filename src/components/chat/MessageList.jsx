@@ -3,6 +3,7 @@ import { useEffect, useRef, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import MessageRenderer from "./messages/MessageRenderer";
+import getFileUrl from "../../utils/getFileUrl";
 
 export default function MessageList({
   messages,
@@ -40,8 +41,9 @@ export default function MessageList({
       lastMessage.sender?._id ||
       lastMessage.sender?.id ||
       lastMessage.sender;
+    const currentUserId = user?._id || user?.id;
 
-    if (String(senderId) === String(user?._id)) {
+    if (String(senderId) === String(currentUserId)) {
       bottomRef.current?.scrollIntoView({
         behavior: "smooth"
       });
@@ -127,6 +129,9 @@ export default function MessageList({
     [messages]
   );
 
+  const pinnedSender =
+    typeof pinned?.sender === "object" ? pinned.sender : null;
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       
@@ -140,14 +145,14 @@ export default function MessageList({
 
           <img
             src={
-              pinned.sender?.avatar ||
-              `https://ui-avatars.com/api/?name=${pinned.sender?.name}`
+              getFileUrl(pinnedSender?.avatar) ||
+              `https://ui-avatars.com/api/?name=${pinnedSender?.name || "User"}`
             }
             className="w-5 h-5 rounded-full"
           />
 
           <span className="font-medium">
-            {pinned.sender?.name}:
+            {pinnedSender?.name || "User"}:
           </span>
 
           <span className="truncate flex-1">
@@ -175,7 +180,15 @@ export default function MessageList({
       >
         <AnimatePresence initial={false}>
           {messages.map((m) => {
-            const isSender = user?._id === m.sender?._id;
+            const senderObj =
+              typeof m.sender === "object" ? m.sender : null;
+
+            const senderId =
+              senderObj?._id ||
+              senderObj?.id ||
+              m.sender;
+
+            const isSender = String(senderId) === String(user?._id);
 
             const messageDate = new Date(m.createdAt).toDateString();
             const showDateSeparator = messageDate !== lastDate;
@@ -194,6 +207,7 @@ export default function MessageList({
             return (
               <div
                 key={m._id}
+                id={`message-${m._id}`}
                 ref={(el) => {
                   if (el) messageRefs.current[m._id] = el;
                 }}
@@ -224,8 +238,8 @@ export default function MessageList({
                     {!isSender && (
                       <img
                         src={
-                          m.sender?.avatar ||
-                          `https://ui-avatars.com/api/?name=${m.sender?.name}`
+                          getFileUrl(senderObj?.avatar) ||
+                          `https://ui-avatars.com/api/?name=${senderObj?.name || "User"}`
                         }
                         alt="avatar"
                         className="w-8 h-8 rounded-full object-cover mt-1"
@@ -258,9 +272,14 @@ export default function MessageList({
                       {m.replyCount > 0 && (
                         <button
                           onClick={() => onOpenThread?.(m)}
-                          className="text-xs text-purple-600 mt-2 hover:underline"
+                          className="mt-2 inline-flex items-center gap-2 text-xs text-purple-600 hover:underline"
                         >
                           View thread ({m.replyCount} replies)
+                          {m.unreadThreadCount > 0 && (
+                            <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white no-underline">
+                              {m.unreadThreadCount > 9 ? "9+" : m.unreadThreadCount}
+                            </span>
+                          )}
                         </button>
                       )}
 
@@ -300,8 +319,8 @@ export default function MessageList({
                     {isSender && (
                       <img
                         src={
-                          m.sender?.avatar ||
-                          `https://ui-avatars.com/api/?name=${m.sender?.name}`
+                          getFileUrl(senderObj?.avatar) ||
+                          `https://ui-avatars.com/api/?name=${senderObj?.name || "User"}`
                         }
                         alt="avatar"
                         className="w-8 h-8 rounded-full object-cover mt-1"

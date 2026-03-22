@@ -3,17 +3,22 @@ import { FiX } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { updateTask } from "../../api/task.api";
 import toast from "react-hot-toast";
+import getFileUrl from "../../utils/getFileUrl";
 
 export default function TaskEditDrawer({ task, onClose, onSaved }) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority || "medium");
+  const [dueDate, setDueDate] = useState(
+    task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : ""
+  );
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setTitle(task.title);
     setDescription(task.description || "");
     setPriority(task.priority || "medium");
+    setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "");
   }, [task]);
 
   const save = async () => {
@@ -28,7 +33,8 @@ export default function TaskEditDrawer({ task, onClose, onSaved }) {
       const updated = await updateTask(task._id, {
         title: title.trim(),
         description: description.trim(),
-        priority
+        priority,
+        dueDate: dueDate || null
       });
 
       toast.success("Task updated");
@@ -84,6 +90,34 @@ export default function TaskEditDrawer({ task, onClose, onSaved }) {
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
           Edit Task
         </h2>
+
+        {task.assignees?.length > 0 && (
+          <div className="mb-6">
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+              Assignees
+            </label>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {task.assignees.map((assignee) => (
+                <div
+                  key={assignee._id}
+                  className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-gray-800"
+                >
+                  <img
+                    src={
+                      getFileUrl(assignee.avatar) ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee.name || "User")}`
+                    }
+                    alt={assignee.name || "Assignee"}
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-200">
+                    {assignee.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* TITLE */}
         <div className="mb-5">
@@ -144,6 +178,25 @@ export default function TaskEditDrawer({ task, onClose, onSaved }) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* DUE DATE */}
+        <div className="mb-6">
+          <label className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            Due Date
+          </label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="
+              mt-2 w-full p-3 rounded-xl border
+              bg-gray-50 dark:bg-gray-800
+              border-gray-200 dark:border-gray-700
+              focus:outline-none focus:ring-2 focus:ring-blue-500
+              text-sm
+            "
+          />
         </div>
 
         {/* ACTIONS */}

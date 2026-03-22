@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-export default function useChannelSocket(socket, channelId, setMessages) {
+export default function useChannelSocket(socket, channelId, setMessages, currentUserId) {
 
   useEffect(() => {
 
@@ -11,19 +11,23 @@ export default function useChannelSocket(socket, channelId, setMessages) {
     /* ================= NEW MESSAGE ================= */
 
     const handleNew = (msg) => {
-
-      if (msg.channel !== channelId || msg.parentMessage) return;
+      const incomingChannelId = msg.channel?._id || msg.channel;
+      if (String(incomingChannelId) !== String(channelId) || msg.parentMessage) return;
 
       setMessages(prev => {
 
         if (prev.some(m => m._id === msg._id)) return prev;
 
-        const filtered = prev.filter(
-          m =>
+        const filtered = prev.filter(m => {
+        const prevSenderId = m.sender?._id || m.sender;
+        const newSenderId = msg.sender?._id || msg.sender;
+
+        return (
             !m.optimistic ||
             m.text !== msg.text ||
-            m.sender?._id !== msg.sender?._id
+            String(prevSenderId) !== String(newSenderId)
         );
+        });
 
         return [...filtered, msg];
       });
@@ -33,8 +37,8 @@ export default function useChannelSocket(socket, channelId, setMessages) {
     /* ================= REACTION ================= */
 
     const handleReaction = (updated) => {
-
-      if (updated.channel !== channelId) return;
+      const updatedChannelId = updated.channel?._id || updated.channel;
+      if (String(updatedChannelId) !== String(channelId)) return;
 
       setMessages(prev =>
         prev.map(m =>
@@ -49,12 +53,14 @@ export default function useChannelSocket(socket, channelId, setMessages) {
     /* ================= MESSAGE UPDATE ================= */
 
     const handleUpdate = (updated) => {
-
-      if (updated.channel !== channelId) return;
+      const updatedChannelId = updated.channel?._id || updated.channel;
+      if (String(updatedChannelId) !== String(channelId)) return;
 
       setMessages(prev =>
         prev.map(m =>
-          m._id === updated._id ? updated : m
+          m._id === updated._id
+            ? { ...m, ...updated }
+            : m
         )
       );
 
@@ -83,8 +89,8 @@ export default function useChannelSocket(socket, channelId, setMessages) {
     /* ================= PIN ================= */
 
     const handlePinned = (updated) => {
-
-        if (String(updated.channel) !== String(channelId)) return;
+        const updatedChannelId = updated.channel?._id || updated.channel;
+        if (String(updatedChannelId) !== String(channelId)) return;
 
         setMessages(prev =>
             prev.map(m =>
@@ -97,8 +103,8 @@ export default function useChannelSocket(socket, channelId, setMessages) {
         };
 
         const handleUnpinned = (updated) => {
-
-            if (updated.channel !== channelId) return;
+            const updatedChannelId = updated.channel?._id || updated.channel;
+            if (String(updatedChannelId) !== String(channelId)) return;
 
             setMessages(prev =>
                 prev.map(m =>
@@ -113,6 +119,8 @@ export default function useChannelSocket(socket, channelId, setMessages) {
     /* ================= THREAD REPLY ADDED ================= */
 
     const handleThreadReplyAdded = ({ parentMessage, reply }) => {
+      const replySenderId = reply?.sender?._id || reply?.sender;
+      const isOwnReply = currentUserId && String(replySenderId) === String(currentUserId);
 
       setMessages(prev =>
         prev.map(m => {
@@ -122,6 +130,8 @@ export default function useChannelSocket(socket, channelId, setMessages) {
           return {
             ...m,
             replyCount: (m.replyCount || 0) + 1,
+            unreadThreadCount: isOwnReply ? (m.unreadThreadCount || 0) : (m.unreadThreadCount || 0) + 1,
+            hasUnreadThread: isOwnReply ? Boolean(m.hasUnreadThread) : true,
             lastReply: {
               _id: reply._id,
               text: reply.text,
@@ -146,7 +156,9 @@ export default function useChannelSocket(socket, channelId, setMessages) {
 
           return {
             ...m,
-            replyCount: Math.max((m.replyCount || 1) - 1, 0)
+            replyCount: Math.max((m.replyCount || 1) - 1, 0),
+            unreadThreadCount: Math.max((m.unreadThreadCount || 1) - 1, 0),
+            hasUnreadThread: Math.max((m.unreadThreadCount || 1) - 1, 0) > 0
           };
 
         })
@@ -159,6 +171,7 @@ export default function useChannelSocket(socket, channelId, setMessages) {
     socket.on("message:new", handleNew);
     socket.on("message:reaction", handleReaction);
     socket.on("message:updated", handleUpdate);
+    socket.on("thread:replyUpdated", handleUpdate);
     socket.on("message:deleted", handleDelete);
     socket.on("message:pinned", handlePinned);
     socket.on("message:unpinned", handleUnpinned);
@@ -174,6 +187,7 @@ export default function useChannelSocket(socket, channelId, setMessages) {
       socket.off("message:new", handleNew);
       socket.off("message:reaction", handleReaction);
       socket.off("message:updated", handleUpdate);
+      socket.off("thread:replyUpdated", handleUpdate);
       socket.off("message:deleted", handleDelete);
       socket.off("message:pinned", handlePinned);
       socket.off("message:unpinned", handleUnpinned);
@@ -182,6 +196,6 @@ export default function useChannelSocket(socket, channelId, setMessages) {
 
     };
 
-  }, [socket, channelId, setMessages]);
+  }, [socket, channelId, setMessages, currentUserId]);
 
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 import { FiX, FiDownload, FiTrash2 } from "react-icons/fi";
 import { motion } from "framer-motion";
+import getFileUrl from "../utils/getFileUrl";
 
 const tabs = ["Photos", "Videos", "Documents"];
 
@@ -24,14 +25,36 @@ const getIcon = (name) => {
   return "📄";
 };
 
+const getDocumentPreviewKind = (file) => {
+  const name = String(file?.name || "").toLowerCase();
+  const url = String(file?.url || "").toLowerCase();
+
+  if (name.endsWith(".pdf") || url.startsWith("data:application/pdf")) {
+    return "pdf";
+  }
+
+  if (
+    [".txt", ".csv", ".json"].some((ext) => name.endsWith(ext)) ||
+    url.startsWith("data:text/")
+  ) {
+    return "text";
+  }
+
+  return "external";
+};
+
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState("Photos");
   const [files, setFiles] = useState([]);
   const [preview, setPreview] = useState(null);
   const [sortBy, setSortBy] = useState("newest");
+  const [failedMedia, setFailedMedia] = useState({});
 
   useEffect(() => {
-    api.get("/library").then((res) => setFiles(res.data));
+    api.get("/library").then((res) => {
+      const payload = res?.data ?? res;
+      setFiles(Array.isArray(payload) ? payload : []);
+    });
   }, []);
 
   const filtered = files.filter((f) => {
@@ -52,8 +75,8 @@ export default function LibraryPage() {
   /* ================= DOWNLOAD FILE ================= */
 
   const downloadFile = async (file) => {
-    const url = `http://localhost:3000${file.url}`;
 
+    const url = getFileUrl(file.url);
     const res = await fetch(url);
     const blob = await res.blob();
 
@@ -71,6 +94,10 @@ export default function LibraryPage() {
   const deleteFile = async (id) => {
     await api.delete(`/library/${id}`);
     setFiles((prev) => prev.filter((f) => f._id !== id));
+  };
+
+  const markMediaFailed = (id) => {
+    setFailedMedia((prev) => ({ ...prev, [id]: true }));
   };
 
   return (
@@ -114,7 +141,7 @@ export default function LibraryPage() {
       {/* FILE GRID */}
       <div className="grid grid-cols-3 gap-6">
         {sorted.map((file) => {
-          const fileUrl = `http://localhost:3000${file.url}`;
+          const fileUrl = getFileUrl(file.url);
 
           return (
             <div
@@ -127,17 +154,36 @@ export default function LibraryPage() {
                 onClick={() => setPreview(file)}
               >
                 {file.type === "image" && (
-                  <img
-                    src={fileUrl}
-                    className="w-full h-40 object-cover rounded-lg"
-                  />
+                  failedMedia[file._id] ? (
+                    <div className="h-40 flex items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                      Preview unavailable
+                    </div>
+                  ) : (
+                    <img
+                      src={fileUrl}
+                      onError={() => markMediaFailed(file._id)}
+                      className="w-full h-40 object-cover rounded-lg"
+                    />
+                  )
                 )}
 
                 {file.type === "video" && (
-                  <video
-                    src={fileUrl}
-                    className="w-full h-40 object-cover rounded-lg"
-                  />
+                  failedMedia[file._id] ? (
+                    <div className="h-40 flex items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                      Preview unavailable
+                    </div>
+                  ) : (
+                    <video
+                      src={fileUrl}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      preload="metadata"
+                      onError={() => markMediaFailed(file._id)}
+                      className="w-full h-40 object-cover rounded-lg"
+                    />
+                  )
                 )}
 
                 {file.type === "document" && (
@@ -162,10 +208,10 @@ export default function LibraryPage() {
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <img
                   src={
-                    file.uploadedBy?.avatar ||
-                    `https://ui-avatars.com/api/?name=${file.uploadedBy?.name}`
+                    getFileUrl(file.uploadedBy?.avatar) ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(file.uploadedBy?.name || "User")}`
                   }
-                  className="w-6 h-6 rounded-full"
+                  className="w-6 h-6 rounded-full object-cover"
                 />
 
                 <span>{file.uploadedBy?.name}</span>
@@ -220,7 +266,7 @@ export default function LibraryPage() {
 
             {preview.type === "image" && (
               <img
-                src={`http://localhost:3000${preview.url}`}
+                src={getFileUrl(preview.url)}
                 className="max-h-[70vh] mx-auto"
               />
             )}
@@ -228,16 +274,45 @@ export default function LibraryPage() {
             {preview.type === "video" && (
               <video
                 controls
-                src={`http://localhost:3000${preview.url}`}
+                playsInline
+                preload="metadata"
+                src={getFileUrl(preview.url)}
                 className="max-h-[70vh] mx-auto"
               />
             )}
 
             {preview.type === "document" && (
-              <iframe
-                src={`http://localhost:3000${preview.url}`}
-                className="w-full h-[70vh]"
-              />
+              <>
+                {getDocumentPreviewKind(preview) === "pdf" && (
+                  <iframe
+                    src={getFileUrl(preview.url)}
+                    title={preview.name}
+                    className="h-[70vh] w-full rounded-lg border"
+                  />
+                )}
+
+                {getDocumentPreviewKind(preview) === "text" && (
+                  <iframe
+                    src={getFileUrl(preview.url)}
+                    title={preview.name}
+                    className="h-[70vh] w-full rounded-lg border bg-white"
+                  />
+                )}
+
+                {getDocumentPreviewKind(preview) === "external" && (
+                  <div className="text-center">
+                    <p className="mb-4">Preview not supported</p>
+                    <a
+                      href={getFileUrl(preview.url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-blue-500 text-white rounded"
+                    >
+                      Open Document
+                    </a>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

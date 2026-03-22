@@ -12,6 +12,10 @@ export default function TodayFocus() {
 
   if (!data) return null;
 
+  const tasks = data.tasks || [];
+  const mentions = data.mentions || [];
+  const reminders = data.reminders || [];
+
   return (
     <div className="bg-white p-5 dark:bg-gray-800 shadow rounded-xl transition-colors">
       <h2 className="font-semibold text-lg mb-3"> Today Focus</h2>

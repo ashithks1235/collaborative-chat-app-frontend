@@ -1,6 +1,25 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import FileHoverBar from "./FileHoverBar";
+import getFileUrl from "../../../utils/getFileUrl";
+
+const getDocumentPreviewKind = (file) => {
+  const name = String(file?.name || "").toLowerCase();
+  const url = String(file?.url || "").toLowerCase();
+
+  if (name.endsWith(".pdf") || url.startsWith("data:application/pdf")) {
+    return "pdf";
+  }
+
+  if (
+    [".txt", ".csv", ".json"].some((ext) => name.endsWith(ext)) ||
+    url.startsWith("data:text/")
+  ) {
+    return "text";
+  }
+
+  return "external";
+};
 
 export default function FileMessage({
   m,
@@ -41,9 +60,7 @@ export default function FileMessage({
 
           {m.attachments.map((file, index) => {
 
-            const fileUrl = file.url?.startsWith("http")
-              ? file.url
-              : `http://localhost:3000${file.url}`;
+            const fileUrl = getFileUrl(file.url);
 
             const type = file.type || "";
             const name = file.name || "";
@@ -105,9 +122,7 @@ export default function FileMessage({
 
       {preview && (() => {
 
-        const previewUrl = preview.url?.startsWith("http")
-            ? preview.url
-            : `http://localhost:3000${preview.url}`;
+        const previewUrl = getFileUrl(preview.url);
 
         const type = preview.type || "";
         const name = preview.name || "";
@@ -152,22 +167,42 @@ export default function FileMessage({
 
                 {/* DOCUMENT PREVIEW */}
                 {!isImage && !isVideo && (
-                <div
-                    onClick={() => window.open(previewUrl, "_blank")}
-                    className="flex flex-col items-center justify-center 
-                            border rounded-lg h-[60vh] cursor-pointer
-                            hover:bg-gray-50 transition"
-                >
-                    <div className="text-6xl mb-4">📄</div>
+                <>
+                  {getDocumentPreviewKind(preview) === "pdf" && (
+                    <iframe
+                      src={previewUrl}
+                      title={name || "Document"}
+                      className="h-[70vh] w-full rounded-lg border"
+                    />
+                  )}
 
-                    <div className="font-medium text-gray-700">
-                    {name || "Document"}
-                    </div>
+                  {getDocumentPreviewKind(preview) === "text" && (
+                    <iframe
+                      src={previewUrl}
+                      title={name || "Document"}
+                      className="h-[70vh] w-full rounded-lg border bg-white"
+                    />
+                  )}
 
-                    <div className="text-sm text-gray-500 mt-2">
-                    Click to open document
+                  {getDocumentPreviewKind(preview) === "external" && (
+                    <div
+                      onClick={() => window.open(previewUrl, "_blank")}
+                      className="flex flex-col items-center justify-center 
+                              border rounded-lg h-[60vh] cursor-pointer
+                              hover:bg-gray-50 transition"
+                    >
+                      <div className="text-6xl mb-4">📄</div>
+
+                      <div className="font-medium text-gray-700">
+                        {name || "Document"}
+                      </div>
+
+                      <div className="text-sm text-gray-500 mt-2">
+                        Click to open document
+                      </div>
                     </div>
-                </div>
+                  )}
+                </>
                 )}
 
             </div>

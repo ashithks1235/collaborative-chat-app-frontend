@@ -49,8 +49,10 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const data = await loginUser(userDetails);
-      setUser(data.user);
+      const res = await loginUser(userDetails);
+      const { user, token } = res;
+      localStorage.setItem("token", token);
+      setUser(user);
       navigate("/", { replace: true });
     } catch (err) {
       const message = getErrorMessage(err);

@@ -11,7 +11,7 @@ export default function useChannelProjects(channelId) {
     const fetchProjects = async () => {
       try {
         const res = await api.get("/projects");
-        const all = res.data?.data || [];
+        const all = Array.isArray(res.data) ? res.data : [];
 
         const filtered = all.filter(
           p => p.channel?._id === channelId

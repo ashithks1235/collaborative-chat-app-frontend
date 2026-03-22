@@ -5,6 +5,7 @@ import { memo } from "react";
 import { useAuthContext } from "../../context/AuthContext";
 import { motion } from "framer-motion";
 import api from "../../api/axios";
+import getFileUrl from "../../utils/getFileUrl";
 
 function TaskCard({ task, columnId, index, onOpen, refetchTasks }) {
 
@@ -164,8 +165,8 @@ return (
 
       <img
         src={
-          myAssignment?.avatar ||
-          task.assignees[0]?.avatar ||
+          getFileUrl(myAssignment?.avatar) ||
+          getFileUrl(task.assignees[0]?.avatar) ||
           `https://ui-avatars.com/api/?name=${
             myAssignment?.name || task.assignees[0]?.name
           }`

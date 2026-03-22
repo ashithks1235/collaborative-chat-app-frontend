@@ -21,7 +21,9 @@ export function SocketProvider({ children }) {
      INITIALIZE SOCKET
   =============================== */
   useEffect(() => {
-    if (!user?._id) {
+    const userId = user?._id || user?.id;
+
+    if (!userId) {
       // Disconnect if user logs out
       socket?.disconnect();
       setSocket(null);
@@ -31,14 +33,16 @@ export function SocketProvider({ children }) {
     const newSocket = io(
       import.meta.env.VITE_SOCKET_URL || "http://localhost:3000",
       {
-        transports: ["websocket"],
+        transports: ["websocket", "polling"],
         auth: {
           token:
             localStorage.getItem("token")
         },
+        withCredentials: true,
         reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        timeout: 20000
       }
     );
 
@@ -62,7 +66,7 @@ export function SocketProvider({ children }) {
       newSocket.disconnect();
     };
 
-  }, [user?._id]);
+  }, [user?._id, user?.id]);
 
   /* ===============================
      ROOM HELPERS

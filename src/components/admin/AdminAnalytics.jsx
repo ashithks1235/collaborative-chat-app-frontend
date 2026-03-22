@@ -2,7 +2,7 @@ import useFetch from "../../hooks/useFetch";
 import api from "../../api/axios";
 import Loader from "../ui/Loader";
 import ErrorBox from "../ui/ErrorBox";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useSocketContext } from "../../context/SocketContext";
 
 import {
@@ -33,7 +33,8 @@ ChartJS.register(
 export default function AdminAnalytics() {
 
   const { data, loading, error, refetch } =
-    useFetch(() => api.get("/analytics").then(res => res.data), []);
+    useFetch(() => api.get("/analytics"), []);
+  const safeData = data || {};
 
   const { socket } = useSocketContext();
 
@@ -52,9 +53,6 @@ export default function AdminAnalytics() {
 
   }, [socket, refetch]);
 
-  if (loading) return <Loader />;
-  if (error) return <ErrorBox message={error} />;
-
   /* ===============================
      TASK COMPLETION CHART
   =============================== */
@@ -64,8 +62,8 @@ export default function AdminAnalytics() {
     datasets: [
       {
         data: [
-          data.completedTasks || 0,
-          data.pendingTasks || 0
+          safeData.completedTasks || 0,
+          safeData.pendingTasks || 0
         ],
         backgroundColor: ["#22c55e", "#facc15"]
       }
@@ -76,12 +74,49 @@ export default function AdminAnalytics() {
      MESSAGES PER DAY
   =============================== */
 
+  const chartDays = useMemo(() => {
+    const dayMap = new Map();
+
+    for (let i = 6; i >= 0; i -= 1) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const key = date.toISOString().slice(0, 10);
+
+      dayMap.set(key, {
+        label: date.toLocaleDateString("en-US", { weekday: "short" }),
+        messageCount: 0,
+        messages: 0,
+        tasks: 0
+      });
+    }
+
+    (safeData.messagesPerDay || []).forEach((item) => {
+      if (dayMap.has(item._id)) {
+        const day = dayMap.get(item._id);
+        day.messageCount = item.count || 0;
+      }
+    });
+
+    (safeData.activityPerDay || []).forEach((item) => {
+      if (dayMap.has(item._id)) {
+        const day = dayMap.get(item._id);
+        day.messages = item.messages || 0;
+        day.tasks = item.tasks || 0;
+      }
+    });
+
+    return Array.from(dayMap.values());
+  }, [safeData.activityPerDay, safeData.messagesPerDay]);
+
+  if (loading) return <Loader />;
+  if (error) return <ErrorBox message={error} />;
+
   const messagesChart = {
-    labels: data.messagesPerDay?.map(d => d._id) || [],
+    labels: chartDays.map((day) => day.label),
     datasets: [
       {
         label: "Messages",
-        data: data.messagesPerDay?.map(d => d.count) || [],
+        data: chartDays.map((day) => day.messageCount),
         backgroundColor: "#3b82f6"
       }
     ]
@@ -92,18 +127,20 @@ export default function AdminAnalytics() {
   =============================== */
 
   const activityChart = {
-    labels: data.activityPerDay?.map(d => d._id) || [],
+    labels: chartDays.map((day) => day.label),
     datasets: [
       {
         label: "Messages",
-        data: data.activityPerDay?.map(d => d.messages) || [],
+        data: chartDays.map((day) => day.messages),
         borderColor: "#3b82f6",
+        backgroundColor: "rgba(59, 130, 246, 0.15)",
         tension: 0.4
       },
       {
         label: "Tasks",
-        data: data.activityPerDay?.map(d => d.tasks) || [],
+        data: chartDays.map((day) => day.tasks),
         borderColor: "#22c55e",
+        backgroundColor: "rgba(34, 197, 94, 0.15)",
         tension: 0.4
       }
     ]
@@ -122,20 +159,20 @@ export default function AdminAnalytics() {
 
       <div className="grid grid-cols-5 gap-6">
 
-        <StatCard label="Total Tasks" value={data.totalTasks} />
+        <StatCard label="Total Tasks" value={safeData.totalTasks} />
 
-        <StatCard label="Pending Tasks" value={data.pendingTasks} />
+        <StatCard label="Pending Tasks" value={safeData.pendingTasks} />
 
-        <StatCard label="Completed Tasks" value={data.completedTasks} />
+        <StatCard label="Completed Tasks" value={safeData.completedTasks} />
 
         <StatCard
           label="Completion Rate"
-          value={`${data.completionRate}%`}
+          value={`${safeData.completionRate}%`}
         />
 
         <StatCard
           label="Active Users"
-          value={data.activeUsers}
+          value={safeData.activeUsers}
         />
 
       </div>

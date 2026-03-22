@@ -8,7 +8,9 @@ export default function NotesGrid() {
   const nav = useNavigate();
 
   useEffect(() => {
-    getNotes().then(setNotes);
+    getNotes().then((res) => {
+      setNotes(res?.data || res || []);
+    });
   }, []);
 
   const recent = notes.slice(0, 2);

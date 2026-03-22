@@ -11,16 +11,17 @@ export default function ChannelActivity({ channelId }) {
       return;
     }
 
-    let isMounted = true; // prevent state update after unmount
+    let isMounted = true;
     setLoading(true);
 
     const fetchActivities = async () => {
       try {
         const res = await api.get(`/channels/${channelId}/activity`);
 
-        // 🔥 SAFETY: Ensure array
-        const activityData = Array.isArray(res.data?.data)
-          ? res.data.data
+        const activityData = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
           : [];
 
         if (isMounted) {

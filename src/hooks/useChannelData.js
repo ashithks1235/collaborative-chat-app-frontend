@@ -21,7 +21,7 @@ export default function useChannelData(id, channels) {
 
       try {
         const res = await api.get(`/channels/${id}`);
-        if (mounted) setChannel(res.data?.data);
+        if (mounted) setChannel(res);
       } catch {
         if (mounted) setChannel(null);
       } finally {

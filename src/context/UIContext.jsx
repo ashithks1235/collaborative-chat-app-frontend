@@ -1,8 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useAuthContext } from "./AuthContext";
 
 const UIContext = createContext();
 
 export function UIProvider({ children }) {
+  const { user } = useAuthContext();
+  const userKey = user?._id || user?.id || null;
 
   const [showThreadPanel, setShowThreadPanel] = useState(false);
   const [activeThread, setActiveThread] = useState(null);
@@ -51,6 +54,14 @@ export function UIProvider({ children }) {
   const clearNotifications = useCallback(() => {
     setNotifications([]);
   }, []);
+
+  useEffect(() => {
+    setNotifications([]);
+    setShowThreadPanel(false);
+    setActiveThread(null);
+    setShowAddMember(false);
+    setChannelSearch("");
+  }, [userKey]);
 
   /* ================= THREAD HELPERS ================= */
 

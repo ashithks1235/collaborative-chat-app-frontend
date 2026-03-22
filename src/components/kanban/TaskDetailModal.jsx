@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuthContext } from "../../context/AuthContext";
 import { useTaskContext } from "../../context/TaskContext";
 import { useSocketContext } from "../../context/SocketContext";
+import getFileUrl from "../../utils/getFileUrl";
 
 export default function TaskDetailModal({ task, onClose, onEdit }) {
   const { user } = useAuthContext();
@@ -16,6 +17,7 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
   const [comments, setComments] = useState([]);
   const [text, setText] = useState("");
   const [subtasks, setSubtasks] = useState([]);
+  const [canDelete, setCanDelete] = useState(false);
 
   if (!task) return null;
 
@@ -25,7 +27,7 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
     api
       .get(`/tasks/${task._id}/comments`)
       .then((res) => {
-        const data = res.data?.data || [];
+        const data = res.data || res || [];
 
         const unique = [];
         const ids = new Set();
@@ -51,13 +53,56 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
     api
       .get(`/tasks/${task._id}/subtasks`)
       .then((res) => {
-        setSubtasks(res.data?.data || []);
+        setSubtasks(res.data || res || []);
       })
       .catch(() => {
         console.log("Failed to load subtasks");
         setSubtasks([]);
       });
   }, [task]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveDeletePermission = async () => {
+      if (!user) {
+        if (mounted) setCanDelete(false);
+        return;
+      }
+
+      if (user.role === "Admin" || user.role === "Moderator") {
+        if (mounted) setCanDelete(true);
+        return;
+      }
+
+      if (!task.channel) {
+        if (mounted) setCanDelete(false);
+        return;
+      }
+
+      try {
+        const res = await api.get(`/channels/${task.channel}`);
+        const channel = res.data || res;
+
+        const isChannelAdmin = Array.isArray(channel.members) &&
+          channel.members.some(
+            (member) =>
+              String(member.user?._id || member.user) === String(user._id || user.id) &&
+              member.role === "admin"
+          );
+
+        if (mounted) setCanDelete(isChannelAdmin);
+      } catch {
+        if (mounted) setCanDelete(false);
+      }
+    };
+
+    resolveDeletePermission();
+
+    return () => {
+      mounted = false;
+    };
+  }, [task.channel, user]);
 
   /* ================= REALTIME COMMENTS ================= */
 
@@ -133,7 +178,7 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
 
     const res = await api.patch(`/subtasks/${subtaskId}/toggle`);
 
-    const updated = res.data.data;
+    const updated = res.data || res;
 
     setSubtasks(prev =>
       prev.map(s =>
@@ -148,10 +193,6 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
 
   /* ================= DELETE TASK ================= */
 
-  const canDelete =
-    user?.role === "Admin" ||
-    task.createdBy?._id === user?.id;
-
   const handleDelete = async () => {
     try {
       await api.delete(`/tasks/${task._id}`);
@@ -162,8 +203,8 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
 
       toast.success("Task deleted");
       onClose();
-    } catch {
-      toast.error("Not authorized");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Not authorized");
     }
   };
 
@@ -244,11 +285,11 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
                   <div key={u._id} className="flex items-center gap-2">
                     <img
                       src={
-                        u.avatar ||
-                        `https://ui-avatars.com/api/?name=${u.name}`
+                        getFileUrl(u.avatar) ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "User")}`
                       }
                       alt={u.name}
-                      className="w-8 h-8 rounded-full"
+                      className="w-8 h-8 rounded-full object-cover"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-200">
                       {u.name}
@@ -318,9 +359,10 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
                   >
                     <img
                       src={
-                        c.user?.avatar ||
-                        `https://ui-avatars.com/api/?name=${c.user?.name}`
+                        getFileUrl(c.user?.avatar) ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(c.user?.name || "User")}`
                       }
+                      alt={c.user?.name || "User"}
                       className="w-8 h-8 rounded-full"
                     />
 

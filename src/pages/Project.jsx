@@ -29,7 +29,8 @@ export default function ProjectPage() {
       try {
         setLoading(true);
         const res = await api.get(`/projects/${id}`);
-        setProject(res.data?.data?.project);
+        const payload = res?.data ?? res;
+        setProject(payload?.data || payload?.project || payload || null);
       } catch(err) {
         console.error(err);
         setError("Project not found");

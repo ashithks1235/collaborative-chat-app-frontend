@@ -48,6 +48,11 @@ export default function Sidebar() {
     navigate("/login");
   };
 
+  const actionButtonClass =
+    "flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-sm transition";
+  const menuLogoutClass =
+    "flex w-full items-center gap-2 rounded-xl px-4 py-2 text-sm text-red-600 transition hover:bg-red-50 dark:hover:bg-red-900/20";
+
   /* ===============================
      ADMIN SIDEBAR
   =============================== */
@@ -66,10 +71,10 @@ export default function Sidebar() {
           {nav("/admin/analytics", <FaChartBar />, "Analytics")}
         </div>
 
-        <div className="pb-6">
+        <div className="space-y-3 px-4 pb-6">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 p-2 px-4 text-sm w-full hover:bg-red-50 text-red-600"
+            className={menuLogoutClass}
           >
             <FaSignOutAlt />
             Logout
@@ -96,16 +101,16 @@ export default function Sidebar() {
         <ChannelList />
       </div>
 
-      <div className="pb-6">
+      <div className="space-y-3 px-4 pb-6">
         <NavLink
           to="/meeting"
           onClick={() => setShowThreadPanel(false)}
           className={({ isActive }) =>
-            `flex items-center gap-2 p-2 px-4 text-sm transition
+            `${actionButtonClass}
             ${
               isActive
-                ? "bg-blue-600 text-white font-semibold border-r-4 border-blue-700"
-                : "text-blue-600 hover:bg-blue-50"
+                ? "bg-blue-600 text-white"
+                : "border border-blue-100 bg-blue-500 text-white hover:bg-blue-400"
             }`
           }
         >
@@ -115,7 +120,7 @@ export default function Sidebar() {
 
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 p-2 px-4 text-sm w-full hover:bg-red-50 text-red-600"
+          className={menuLogoutClass}
         >
           <FaSignOutAlt />
           Logout

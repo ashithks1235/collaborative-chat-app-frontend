@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import { useAuthContext } from "../../context/AuthContext";
 import RoleBadge from "../../components/common/RoleBadge";
+import getFileUrl from "../../utils/getFileUrl";
 import toast from "react-hot-toast";
 import { FiChevronDown, FiArrowLeft } from "react-icons/fi";
 
@@ -12,7 +13,6 @@ export default function ChannelSettings() {
   const { user } = useAuthContext();
 
   const [channel, setChannel] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
@@ -21,8 +21,13 @@ export default function ChannelSettings() {
     const loadChannel = async () => {
       try {
         const res = await api.get(`/channels/${id}`);
-        setChannel(res.data);
-        setNewName(res.data.name);
+        const payload = res.data || res;
+        const safeMembers = Array.isArray(payload.members)
+          ? payload.members.filter((member) => member?.user?._id)
+          : [];
+
+        setChannel({ ...payload, members: safeMembers });
+        setNewName(payload.name || "");
       } catch {
         toast.error("Failed to load channel");
       }
@@ -34,9 +39,13 @@ export default function ChannelSettings() {
   if (!channel) return null;
 
   /* ================= CHECK CHANNEL ADMIN ================= */
-  const isChannelAdmin = channel.members.some(
+  const safeMembers = Array.isArray(channel.members)
+    ? channel.members.filter((member) => member?.user?._id)
+    : [];
+
+  const isChannelAdmin = safeMembers.some(
     (m) =>
-      m.user._id === user._id &&
+      m.user?._id === user?._id &&
       m.role === "admin"
   );
 
@@ -55,7 +64,6 @@ export default function ChannelSettings() {
       await api.put(`/channels/${id}`, { name: newName });
       toast.success("Channel renamed");
       setChannel({ ...channel, name: newName });
-      setShowEditModal(false);
     } catch {
       toast.error("Rename failed");
     }
@@ -92,9 +100,6 @@ export default function ChannelSettings() {
       toast.error("Remove failed");
     }
   };
-
-  console.log(channel.members);
-
   return (
     <div className="p-8 space-y-8 max-w-4xl bg-white">
 
@@ -157,7 +162,7 @@ export default function ChannelSettings() {
                     isEditing ? "max-h-[500px] opacity-100 mt-4" : "max-h-0 opacity-0"
                 }`}
                 >
-                <div className="space-y-6 border-t pt-6">
+                <div className="space-y-6 pt-6">
 
                     {/* Rename */}
                     <div className="space-y-2">
@@ -169,7 +174,7 @@ export default function ChannelSettings() {
                         <input
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        className="flex-1 p-2 border rounded 
+                        className="flex-1 p-2 border rounded-xl 
                                     dark:bg-gray-700
                                     focus:ring-2 focus:ring-blue-400
                                     transition"
@@ -178,7 +183,7 @@ export default function ChannelSettings() {
                         <button
                         onClick={handleRename}
                         disabled={!newName || newName === channel.name}
-                        className="bg-blue-500 text-white px-4 py-2 rounded
+                        className="bg-blue-500 text-white px-4 py-2 rounded-2xl
                                     hover:bg-blue-600
                                     disabled:opacity-50
                                     transition"
@@ -188,15 +193,12 @@ export default function ChannelSettings() {
                     </div>
                     </div>
 
-                    {/* Danger Zone */}
-                    <div className="border-t pt-4">
-                    <p className="text-red-600 font-medium mb-3">
-                        Danger Zone
-                    </p>
+                  
+                    <div className="pt-4">
 
                     <button
                         onClick={handleDelete}
-                        className="bg-red-600 text-white px-4 py-2 rounded
+                        className="bg-red-600 text-white px-4 py-2 rounded-2xl
                                 hover:bg-red-700
                                 transition"
                     >
@@ -211,40 +213,62 @@ export default function ChannelSettings() {
 
 
       {/* ================= MEMBERS ================= */}
-        <div className="bg-white dark:bg-gray-800 shadow rounded-xl p-6 space-y-4 transition-colors">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow space-y-6 transition hover:shadow-lg">
+        <div className="flex items-center justify-between pb-4">
+          <div>
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
+              Members
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Manage channel roles and remove members when needed.
+            </p>
+          </div>
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-200">
+            {safeMembers.length} members
+          </span>
+        </div>
 
-        <h3 className="font-semibold text-lg">
-            Members ({channel.members.length})
-        </h3>
-
-        {channel.members.map((memberObj) => {
+        {safeMembers.map((memberObj) => {
             const u = memberObj.user;
             const channelRole = memberObj.role;
-            const isSelf = u._id === user._id;
+            const isSelf = u?._id === user?._id;
 
             return (
             <div
                 key={u._id}
-                className="flex justify-between items-center border-b py-3"
+                className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 px-4 py-4 transition-colors dark:border-gray-700"
             >
+                <div className="flex items-center gap-4">
+                <img
+                  src={
+                    getFileUrl(u.avatar) ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || "User")}`
+                  }
+                  alt={u.name || "Member"}
+                  className="h-12 w-12 rounded-full object-cover ring-2 ring-blue-50 dark:ring-blue-900/40"
+                />
                 <div className="space-y-1">
-                <p className="font-medium">
+                <p className="font-medium text-gray-900 dark:text-white">
                     {u.name}
                     {isSelf && " (You)"}
                 </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {u.email || "No email available"}
+                </p>
 
-                {/* 🔥 Channel Role Badge */}
+                {/* Channel Role Badge */}
                 <RoleBadge
                     role={channelRole === "admin" ? "ChannelAdmin" : "Member"}
                 />
                 </div>
+                </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap justify-end gap-3">
 
                 {channelRole !== "admin" && (
                     <button
                     onClick={() => promoteUser(u._id)}
-                    className="text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition"
+                    className="rounded-2xl bg-yellow-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-yellow-600"
                     >
                     Promote
                     </button>
@@ -253,7 +277,7 @@ export default function ChannelSettings() {
                 {!isSelf && (
                     <button
                     onClick={() => removeUser(u._id)}
-                    className="text-xs bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+                    className="rounded-2xl bg-red-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-600"
                     >
                     Remove
                     </button>

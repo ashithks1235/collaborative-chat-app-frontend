@@ -13,11 +13,12 @@ export function MessageProvider({ children }) {
     if (!authReady || !user) return;
 
     try {
-      const res = await api.get(`/threads/${parentId}`);
+      const res = await api.get(`/messages/${parentId}/replies`);
+      const payload = res?.data ?? res;
 
       setThreadReplies((prev) => ({
         ...prev,
-        [parentId]: res.data.data || res.data,
+        [parentId]: payload?.replies || [],
       }));
     } catch (err) {
       console.error("Load thread failed:", err);

@@ -1,59 +1,73 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createTask } from "../../api/task.api";
 import toast from "react-hot-toast";
 
 export default function CreateTaskModal({
   projectId,
-  columnId,
   members = [],
   onClose
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [assignees, setAssignees] = useState([]);
-  const [priority, setPriority] = useState("medium");
+  const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState("medium");
   const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
-  const toggleAssignee = (userId) => {
-    setAssignees(prev =>
-      prev.includes(userId)
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
+  const safeMembers = useMemo(
+    () =>
+      members
+        .map((member) => member?.user || member)
+        .filter((member) => member?._id),
+    [members]
+  );
+
+  useEffect(() => {
+    setTitle("");
+    setDescription("");
+    setAssignee("");
+    setDueDate("");
+    setPriority("medium");
+    setError("");
+  }, []);
+
+  const validate = () => {
+    if (!title.trim()) {
+      return "Task title is required.";
+    }
+
+    if (!assignee) {
+      return "Please assign this task to someone.";
+    }
+
+    return null;
   };
 
   const handleCreate = async () => {
-    if (!title.trim()) {
-      toast.error("Task title required");
-      return;
-    }
-
-    if (assignees.length === 0) {
-      toast.error("Assign at least one member");
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     try {
       setLoading(true);
+      setError("");
 
       await createTask(projectId, {
-        title,
-        description,
-        column: columnId,
-        assignees,
+        title: title.trim(),
+        description: description.trim(),
+        assignees: [assignee],
         priority,
-        dueDate
+        dueDate: dueDate || null
       });
 
       toast.success("Task created");
       onClose();
-
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to create task");
+      setError(err.response?.data?.message || "Failed to create task");
     } finally {
       setLoading(false);
     }
@@ -62,137 +76,105 @@ export default function CreateTaskModal({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-        onClick={onClose}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        onClick={onClose}
       >
         <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-2xl p-6 shadow-xl"
-          initial={{ scale: 0.92 }}
-          animate={{ scale: 1 }}
-          exit={{ scale: 0.92 }}
+          className="bg-white dark:bg-gray-900 w-full max-w-md rounded-2xl shadow-xl p-6 space-y-5"
         >
-          <h2 className="text-lg font-semibold mb-5 text-gray-800 dark:text-gray-100">
+          <h2 className="text-lg font-semibold">
             Create Task
           </h2>
 
-          {/* TITLE */}
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Task title"
-            className="w-full border rounded-lg px-3 py-2 mb-4"
-          />
-
-          {/* DESCRIPTION */}
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description (optional)"
-            rows={3}
-            className="w-full border rounded-lg px-3 py-2 mb-4"
-          />
-
-          {/* ASSIGNEES */}
-          <div className="mb-5">
-            <p className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-200">
-              Assign Members
-            </p>
-
-            {/* SEARCH INPUT */}
+          <div>
+            <label className="text-sm font-medium">
+              Task Title
+            </label>
             <input
-              placeholder="Search members..."
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-3"
-              onChange={(e) => setSearch(e.target.value)}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enter task title"
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
             />
-
-            {/* SELECTED MEMBERS */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {assignees.map(id => {
-                const user = members.find(m => m._id === id);
-                if (!user) return null;
-
-                return (
-                  <div
-                    key={id}
-                    className="flex items-center gap-2 bg-blue-500 text-white px-3 py-1 rounded-full text-xs"
-                  >
-                    <img
-                      src={
-                        user.avatar ||
-                        `https://ui-avatars.com/api/?name=${user.name}`
-                      }
-                      className="w-5 h-5 rounded-full"
-                    />
-                    {user.name}
-
-                    <button
-                      onClick={() => toggleAssignee(id)}
-                      className="ml-1 text-white/80 hover:text-white"
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* MEMBER LIST */}
-            <div className="max-h-40 overflow-y-auto border rounded-lg">
-              {members
-                .filter(m =>
-                  m.name.toLowerCase().includes(search.toLowerCase())
-                )
-                .map(member => (
-                  <div
-                    key={member._id}
-                    onClick={() => toggleAssignee(member._id)}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-                  >
-                    <img
-                      src={
-                        member.avatar ||
-                        `https://ui-avatars.com/api/?name=${member.name}`
-                      }
-                      className="w-7 h-7 rounded-full"
-                    />
-
-                    <span className="text-sm text-gray-700 dark:text-gray-200">
-                      {member.name}
-                    </span>
-                  </div>
-                ))}
-            </div>
           </div>
 
-          {/* PRIORITY + DATE */}
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              className="border rounded-lg px-3 py-2"
-            >
-              <option value="low">Low Priority</option>
-              <option value="medium">Medium Priority</option>
-              <option value="high">High Priority</option>
-            </select>
+          <div>
+            <label className="text-sm font-medium">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe the task"
+              rows={4}
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 resize-none"
+            />
+          </div>
 
+          <div>
+            <label className="text-sm font-medium">
+              Assign To
+            </label>
+            <select
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="">Select member</option>
+              {safeMembers.map((member) => (
+                <option key={member._id} value={member._id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">
+              Due Date (Optional)
+            </label>
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="border rounded-lg px-3 py-2"
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
             />
           </div>
 
-          {/* ACTIONS */}
-          <div className="flex justify-end gap-3">
+          <div>
+            <label className="text-sm font-medium">
+              Priority
+            </label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-500">
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 border rounded-lg"
+              className="text-sm px-4 py-2 rounded-lg border"
+              disabled={loading}
             >
               Cancel
             </button>
@@ -200,12 +182,11 @@ export default function CreateTaskModal({
             <button
               onClick={handleCreate}
               disabled={loading}
-              className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600"
+              className="text-sm px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create Task"}
             </button>
           </div>
-
         </motion.div>
       </motion.div>
     </AnimatePresence>
