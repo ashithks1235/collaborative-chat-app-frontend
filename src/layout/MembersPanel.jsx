@@ -27,6 +27,7 @@ export default function MembersPanel() {
   const [reminders, setReminders] = useState([]);
   const [expanded, setExpanded] = useState(false);
   const [showOffline, setShowOffline] = useState(false);
+  const [dashboardPanelReady, setDashboardPanelReady] = useState(false);
 
   const [chartData, setChartData] = useState({
     completed: 0,
@@ -42,9 +43,31 @@ export default function MembersPanel() {
 }
 
   useEffect(() => {
+    if (inChannel) {
+      setDashboardPanelReady(false);
+      return;
+    }
+
+    let timeoutId;
+    const rafId = window.requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(() => {
+        setDashboardPanelReady(true);
+      }, 180);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [inChannel]);
+
+  useEffect(() => {
     if (!authReady) return;
     if (inChannel) return;
     if (!user) return;
+    if (!dashboardPanelReady) return;
 
     const loadAnalytics = async () => {
       try {
@@ -64,12 +87,12 @@ export default function MembersPanel() {
     };
 
     loadAnalytics();
-  }, [authReady, user, inChannel]);
+  }, [authReady, user, inChannel, dashboardPanelReady]);
 
   /* ================= REALTIME ANALYTICS ================= */
 
   useEffect(() => {
-  if (!socket || !authReady || inChannel) return;
+  if (!socket || !authReady || inChannel || !dashboardPanelReady) return;
 
   const refreshAnalytics = async () => {
 
@@ -103,7 +126,7 @@ export default function MembersPanel() {
     socket.off("subtask:updated", refreshAnalytics);
   };
 
-}, [socket, inChannel]);
+}, [socket, inChannel, authReady, dashboardPanelReady]);
 
   const weekStart = startOfWeek(new Date());
   const weekDays = Array.from({ length: 7 }).map((_, i) =>
@@ -127,6 +150,7 @@ export default function MembersPanel() {
   /* ================= USER DASHBOARD MODE ================= */
   useEffect(() => {
     if (inChannel) return;
+    if (!dashboardPanelReady) return;
 
     const loadDashboard = async () => {
       try {
@@ -138,7 +162,7 @@ export default function MembersPanel() {
     };
 
     loadDashboard();
-  }, [inChannel]);
+  }, [inChannel, dashboardPanelReady]);
 
   const sortedMembers = [...validMembers].sort((a, b) => {
     const aOnline = onlineUsers.includes(a.user?._id);

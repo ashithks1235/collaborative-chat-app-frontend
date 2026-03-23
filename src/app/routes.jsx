@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useAuthContext } from "../context/AuthContext";
 
@@ -6,29 +7,40 @@ import Register from "../pages/auth/Register";
 import Home from "../pages/Home";
 import Channel from "../pages/Channel";
 import Tasks from "../pages/Tasks";
-import Analytics from "../pages/Analytics";
 import Profile from "../pages/Profile";
 import Settings from "../pages/Settings";
-import Admin from "../pages/Admin";
 import AppLayout from "../layout/AppLayout";
-import SearchPage from "../pages/Search";
-import ProjectPage from "../pages/Project";
-import LibraryPage from "../pages/Library";
-import Meeting from "../pages/Meeting";
-import NotesPage from "../pages/Notes";
-import AddNote from "../pages/notes/AddNote";
-import ViewNote from "../pages/notes/ViewNote";
-import ProjectsList from "../pages/ProjectsList";
-import AdminDashboard from "../components/admin/AdminDashboard";
-import AdminUsers from "../components/admin/AdminUsers";
-import AdminChannels from "../components/admin/AdminChannels";
-import AdminAnalytics from "../components/admin/AdminAnalytics";
-import ChannelSettings from "../pages/channel/ChannelSettings";
-import AdminChannelView from "../pages/admin/AdminChannelView";
 import { AnimatePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import PageNotFound from "../pages/PageNotFound";
 
+const Analytics = lazy(() => import("../pages/Analytics"));
+const SearchPage = lazy(() => import("../pages/Search"));
+const ProjectPage = lazy(() => import("../pages/Project"));
+const LibraryPage = lazy(() => import("../pages/Library"));
+const Meeting = lazy(() => import("../pages/Meeting"));
+const NotesPage = lazy(() => import("../pages/Notes"));
+const AddNote = lazy(() => import("../pages/notes/AddNote"));
+const ViewNote = lazy(() => import("../pages/notes/ViewNote"));
+const ProjectsList = lazy(() => import("../pages/ProjectsList"));
+const ChannelSettings = lazy(() => import("../pages/channel/ChannelSettings"));
+const AdminDashboard = lazy(() => import("../components/admin/AdminDashboard"));
+const AdminUsers = lazy(() => import("../components/admin/AdminUsers"));
+const AdminChannels = lazy(() => import("../components/admin/AdminChannels"));
+const AdminAnalytics = lazy(() => import("../components/admin/AdminAnalytics"));
+const AdminChannelView = lazy(() => import("../pages/admin/AdminChannelView"));
+
+function RouteLoader() {
+  return (
+    <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+      Loading...
+    </div>
+  );
+}
+
+function LazyRoute({ children }) {
+  return <Suspense fallback={<RouteLoader />}>{children}</Suspense>;
+}
 
 /* -----------------------------
    AUTH GUARDS
@@ -87,31 +99,131 @@ export default function AppRoutes() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="channel/:id" element={<Channel />} />
-            <Route path="channel/:id/settings" element={<ChannelSettings />} />
+            <Route
+              path="channel/:id/settings"
+              element={
+                <LazyRoute>
+                  <ChannelSettings />
+                </LazyRoute>
+              }
+            />
             <Route path="tasks" element={<Tasks />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/projects" element={<ProjectsList />} />
-            <Route path="/projects/:id" element={<ProjectPage />} />
+            <Route
+              path="analytics"
+              element={
+                <LazyRoute>
+                  <Analytics />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <LazyRoute>
+                  <SearchPage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/library"
+              element={
+                <LazyRoute>
+                  <LibraryPage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/projects"
+              element={
+                <LazyRoute>
+                  <ProjectsList />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/projects/:id"
+              element={
+                <LazyRoute>
+                  <ProjectPage />
+                </LazyRoute>
+              }
+            />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="/meeting" element={<Meeting />} />
-            <Route path="/notes" element={<NotesPage />} />
-            <Route path="/notes/new" element={<AddNote />} />
-            <Route path="/notes/:id" element={<ViewNote />} />
+            <Route
+              path="/meeting"
+              element={
+                <LazyRoute>
+                  <Meeting />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/notes"
+              element={
+                <LazyRoute>
+                  <NotesPage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/notes/new"
+              element={
+                <LazyRoute>
+                  <AddNote />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/notes/:id"
+              element={
+                <LazyRoute>
+                  <ViewNote />
+                </LazyRoute>
+              }
+            />
             {/* Admin only */}
             <Route element={<RequireRole roles={["Admin"]} />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/channels" element={<AdminChannels />} />
-              <Route path="/admin/analytics" element={<AdminAnalytics />} />
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <LazyRoute>
+                    <AdminDashboard />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <LazyRoute>
+                    <AdminUsers />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="/admin/channels"
+                element={
+                  <LazyRoute>
+                    <AdminChannels />
+                  </LazyRoute>
+                }
+              />
+              <Route
+                path="/admin/analytics"
+                element={
+                  <LazyRoute>
+                    <AdminAnalytics />
+                  </LazyRoute>
+                }
+              />
               <Route
                 path="/admin/channels/:id"
                 element={
-                  <RequireRole roles={["Admin"]}>
-                    <AdminChannelView />
-                  </RequireRole>
+                  <LazyRoute>
+                    <RequireRole roles={["Admin"]}>
+                      <AdminChannelView />
+                    </RequireRole>
+                  </LazyRoute>
                 }
               />
             </Route>

@@ -6,8 +6,12 @@ import { useChannelContext } from "../../context/ChannelContext";
 import { useSocketContext } from "../../context/SocketContext";
 import CreateProjectModal from "../projects/CreateProjectModal";
 import { useEffect, useState, useRef, useMemo } from "react";
-import { getNotifications } from "../../api/notification.api";
-import { getUnreadCount } from "../../api/notification.api";
+import {
+  getNotifications,
+  getUnreadCount,
+  markAllNotificationsRead as markAllNotificationsReadApi,
+  markNotificationRead as markNotificationReadApi,
+} from "../../api/notification.api";
 import api from "../../api/axios";
 import { formatDistanceToNow } from "date-fns";
 
@@ -19,7 +23,16 @@ export default function SharedHeader() {
   const { user } = useAuthContext();
   const { channels } = useChannelContext();
   const { socket } = useSocketContext();
-  const { addNotification, notifications, setInitialNotifications, setShowAddMember } = useUI();
+  const {
+    addNotification,
+    notifications,
+    notificationUnreadCount,
+    setNotificationUnreadCount,
+    setInitialNotifications,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    setShowAddMember,
+  } = useUI();
   const isChannel = location.pathname.startsWith("/channel");
   const isSuperAdmin = user?.role === "Admin";
   const isAdminChannelView =
@@ -63,8 +76,8 @@ export default function SharedHeader() {
 
     const loadUnread = async () => {
       try {
-        const { unreadCount } = await getUnreadCount();
-        console.log("Unread notifications:", unreadCount);
+        const unreadCount = await getUnreadCount();
+        setNotificationUnreadCount(unreadCount);
       } catch {
         console.log("Unread count load failed");
       }
@@ -72,7 +85,7 @@ export default function SharedHeader() {
 
     loadUnread();
 
-  }, []);
+  }, [setNotificationUnreadCount]);
 
   /* ================= GET ACTIVE CHANNEL ================= */
   const activeChannel = useMemo(() => {
@@ -119,25 +132,6 @@ export default function SharedHeader() {
     return () => clearTimeout(delay);
   }, [query, id, isChannel]);
 
-  useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-
-        const res = await getNotifications();
-
-        if (res?.notifications) {
-          setInitialNotifications(res.notifications);
-        }
-
-      } catch (err) {
-        console.log("Failed to load notifications");
-      }
-    };
-
-    loadNotifications();
-
-  }, [setInitialNotifications]);
-
   /* ================= SOCKET NOTIFICATIONS ================= */
   useEffect(() => {
     if (!socket) return;
@@ -147,17 +141,11 @@ export default function SharedHeader() {
     };
 
     const handleRead = (id) => {
-      setInitialNotifications((prev) =>
-        prev.map((n) =>
-          n._id === id ? { ...n, read: true } : n
-        )
-      );
+      markNotificationAsRead(id);
     };
 
     const handleAllRead = () => {
-      setInitialNotifications((prev) =>
-        prev.map((n) => ({ ...n, read: true }))
-      );
+      markAllNotificationsAsRead();
     };
 
     socket.on("notification:new", handleNotification);
@@ -169,10 +157,9 @@ export default function SharedHeader() {
       socket.off("notification:read", handleRead);
       socket.off("notification:allRead", handleAllRead);
     };
-  }, [socket, addNotification, setInitialNotifications]);
+  }, [socket, addNotification, markAllNotificationsAsRead, markNotificationAsRead]);
 
-  const unreadCount =
-    notifications?.filter((n) => !n.read).length || 0;
+  const unreadCount = notificationUnreadCount || 0;
 
   const getNotificationIcon = (type) => {
 
@@ -192,6 +179,32 @@ export default function SharedHeader() {
   }
 
 };
+
+  const handleNotificationsToggle = async () => {
+    const nextOpen = !showNotifications;
+    setShowNotifications(nextOpen);
+
+    if (!nextOpen) return;
+
+    try {
+      const res = await getNotifications();
+
+      if (res?.notifications) {
+        setInitialNotifications(res.notifications);
+      }
+    } catch {
+      console.log("Failed to load notifications");
+    }
+
+    if (unreadCount <= 0) return;
+
+    try {
+      await markAllNotificationsReadApi();
+      markAllNotificationsAsRead();
+    } catch {
+      console.log("Failed to mark notifications as read");
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 px-6 py-4 flex items-center">
@@ -313,19 +326,7 @@ export default function SharedHeader() {
         {!isChannel && !isSuperAdmin && (
           <div ref={notifRef} className="relative">
             <button
-              onClick={async () => {
-                setShowNotifications((p) => !p);
-                if (!showNotifications) {
-                  try {
-                    await api.put("/notifications/read-all");
-                      setInitialNotifications((prev) =>
-                        prev.map((n) => ({ ...n, read: true }))
-                      );
-                  } catch {
-                    console.log("Failed to mark notifications as read");
-                  }
-                }
-              }}
+              onClick={handleNotificationsToggle}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 relative"
             >
               <FiBell className="text-lg text-gray-600 dark:text-gray-300" />
@@ -363,7 +364,10 @@ export default function SharedHeader() {
                       onClick={async () => {
 
                         try {
-                          await api.put(`/notifications/${n._id}/read`);
+                          if (!n.read) {
+                            await markNotificationReadApi(n._id);
+                            markNotificationAsRead(n._id);
+                          }
                         } catch {}
 
                         if (n.link) {

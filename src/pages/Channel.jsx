@@ -1,6 +1,5 @@
-import { useEffect, useState, useMemo } from "react";
+import { lazy, Suspense, useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
 
 import { useSocketContext } from "../context/SocketContext";
@@ -14,7 +13,6 @@ import ChatInput from "../components/chat/ChatInput";
 import ConvertToTaskModal from "../components/chat/ConvertToTaskModal";
 import AddMemberModal from "../components/channel/AddMemberModal";
 import Loader from "../components/ui/Loader";
-import ThreadPanel from "../layout/ThreadPanel";
 
 import api from "../api/axios";
 import getErrorMessage from "../utils/getErrorMessage";
@@ -23,6 +21,20 @@ import useChannelData from "../hooks/useChannelData";
 import useChannelProjects from "../hooks/useChannelProjects";
 import useChannelMessages from "../hooks/useChannelMessages";
 import useChannelSocket from "../hooks/useChannelSocket";
+
+const ThreadPanel = lazy(() => import("../layout/ThreadPanel"));
+
+function ThreadPanelSkeleton() {
+  return (
+    <div className="border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+      <div className="animate-pulse space-y-3">
+        <div className="h-5 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800" />
+        <div className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800" />
+      </div>
+    </div>
+  );
+}
 
 export default function Channel() {
 
@@ -231,11 +243,7 @@ export default function Channel() {
   /* ================= UI ================= */
 
   return (
-    <motion.div
-      className="flex flex-col h-full overflow-hidden"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <div className="flex h-full flex-col overflow-hidden transition-opacity duration-200">
 
       <MessageList
         messages={messages}
@@ -265,13 +273,15 @@ export default function Channel() {
       />
 
       {activeThread && (
-        <ThreadPanel
-          message={activeThread}
-          onClose={() => setActiveThread(null)}
-          isChannelAdmin={isChannelAdmin}
-          channelMembers={cleanMembers}
-          projects={channelProjects}
-        />
+        <Suspense fallback={<ThreadPanelSkeleton />}>
+          <ThreadPanel
+            message={activeThread}
+            onClose={() => setActiveThread(null)}
+            isChannelAdmin={isChannelAdmin}
+            channelMembers={cleanMembers}
+            projects={channelProjects}
+          />
+        </Suspense>
       )}
 
       {!isSuperAdmin && (
@@ -306,6 +316,6 @@ export default function Channel() {
         />
       )}
 
-    </motion.div>
+    </div>
   );
 }

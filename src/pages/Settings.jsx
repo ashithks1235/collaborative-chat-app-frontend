@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { useUI } from "../context/UIContext";
 import { useAuthContext } from "../context/AuthContext";
-import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import RoleBadge from "../components/common/RoleBadge";
 import { FiArrowLeft, FiChevronDown } from "react-icons/fi";
@@ -147,11 +146,7 @@ export default function Settings() {
     `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}`;
 
   return (
-    <motion.div
-      className="min-h-screen bg-gray-50 px-6 py-8 dark:bg-gray-950"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
+    <div className="min-h-screen bg-gray-50 px-6 py-8 transition-opacity duration-200 dark:bg-gray-950">
       <div className="mx-auto max-w-4xl space-y-8">
         <div className="flex items-center gap-3">
           <button
@@ -538,6 +533,6 @@ export default function Settings() {
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

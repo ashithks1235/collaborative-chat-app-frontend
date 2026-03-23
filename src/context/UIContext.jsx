@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAuthContext } from "./AuthContext";
 
 const UIContext = createContext();
@@ -12,7 +12,9 @@ export function UIProvider({ children }) {
 
   const [channelSearch, setChannelSearch] = useState("");
   const [notifications, setNotifications] = useState([]);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [showAddMember, setShowAddMember] = useState(false);
+  const notificationsRef = useRef([]);
 
   const [theme, setTheme] = useState(
     localStorage.getItem("theme") || "light"
@@ -35,28 +37,71 @@ export function UIProvider({ children }) {
     localStorage.setItem("notifications", notificationsEnabled);
   }, [notificationsEnabled]);
 
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
+
   /* ================= NOTIFICATION HELPERS ================= */
 
   const addNotification = useCallback((notif) => {
-    setNotifications((prev) => {
-      const exists = prev.some(n => n._id === notif._id);
-      if (exists) return prev;
+    const exists = notificationsRef.current.some(
+      (notification) => notification._id === notif._id
+    );
 
-      const updated = [notif, ...prev];
-      return updated.slice(0, 50);
-    });
+    if (exists) return;
+
+    setNotifications((prev) => [notif, ...prev].slice(0, 50));
+
+    if (!notif?.read) {
+      setNotificationUnreadCount((prev) => prev + 1);
+    }
   }, []);
 
   const setInitialNotifications = useCallback((list) => {
-    setNotifications(list);
+    const safeList = Array.isArray(list) ? list : [];
+    setNotifications(safeList);
+    setNotificationUnreadCount(
+      safeList.filter((notification) => !notification.read).length
+    );
+  }, []);
+
+  const markNotificationAsRead = useCallback((id) => {
+    const target = notificationsRef.current.find(
+      (notification) => notification._id === id
+    );
+
+    if (!target || target.read) return;
+
+    setNotifications((prev) =>
+      prev.map((notification) => {
+        if (notification._id !== id) {
+          return notification;
+        }
+
+        return { ...notification, read: true };
+      })
+    );
+
+    setNotificationUnreadCount((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback(() => {
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.read ? notification : { ...notification, read: true }
+      )
+    );
+    setNotificationUnreadCount(0);
   }, []);
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);
+    setNotificationUnreadCount(0);
   }, []);
 
   useEffect(() => {
     setNotifications([]);
+    setNotificationUnreadCount(0);
     setShowThreadPanel(false);
     setActiveThread(null);
     setShowAddMember(false);
@@ -90,8 +135,12 @@ export function UIProvider({ children }) {
         setChannelSearch,
 
         notifications,
+        notificationUnreadCount,
+        setNotificationUnreadCount,
         addNotification,
         setInitialNotifications,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
         clearNotifications,
 
         theme,
