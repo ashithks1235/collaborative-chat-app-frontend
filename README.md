@@ -104,7 +104,7 @@ To run this project in your local enviornment, follow these steps:
 1. Clone the repository to your local machine.
 2. Run `npm install` in the project directory to install the required dependencies.
 3. Run `npm run dev` or `run start` to get the project started.
-4. Open `http://localhost:5173` in youe web browser to view the app.
+4. Open `http://localhost:5173` in your web browser to view the app.
 
 ---
 
